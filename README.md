@@ -2,6 +2,13 @@
 
 基于 **Tauri 2.x + React + TypeScript + Milkdown + CodeMirror 6** 构建的轻量级 Markdown 编辑器，面向 **Windows / macOS** 桌面端并预留 **iPadOS / iOS** 扩展能力。
 
+## 下载安装
+
+前往 [GitHub Releases 最新版本](https://github.com/xingpengcheng417/show-worker/releases/latest) 直接下载对应系统安装包：
+
+- **Windows**：下载 `ShowWorker_<版本号>_x64-setup.exe`（简体中文安装向导，双击安装即可使用）
+- **macOS**：下载 `ShowWorker_<版本号>_universal.dmg`（支持 Apple Silicon 与 Intel 双架构）
+
 ## 核心特性
 
 - **Typora 风格沉浸所见即所得**：基于 Milkdown (ProseMirror + Remark)，支持行内/块级语法瞬时渲染、表格上下文工具条、划词格式浮窗、斜杠块菜单（`/`）、专注模式与打字机居中滚动。
@@ -59,7 +66,9 @@ npm run tauri build
 1. **首次配置 GitHub Actions 签名私钥**（仅需一次）：
    - 在 GitHub 仓库打开 `Settings -> Secrets and variables -> Actions -> New repository secret`。
    - 新建 Secret `TAURI_SIGNING_PRIVATE_KEY`，值填入本机签名私钥文件内容（例如 `C:\Users\79235\.tauri\show-worker.key`）。
-2. **发布新版本（例如 `0.2.0`）**：
-   - 将 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 中的版本号同步升级为 `0.2.0`。
-   - 提交代码后打标签并推送：`git tag v0.2.0 && git push origin main --tags`。
-   - `.github/workflows/release.yml` 会自动构建签名版 Windows/macOS 安装包并生成 `latest.json`，旧版本客户端即可自动检测到更新。
+2. **一键发布新版本（例如 `0.2.0`）**：
+   - 运行一键发版命令自动同步 `package.json`、`tauri.conf.json`、`Cargo.toml` 版本号并打标签推送：
+     ```bash
+     npm run release -- 0.2.0 --push
+     ```
+   - `.github/workflows/release.yml` 会自动构建 Windows `.exe` 与 macOS `.dmg` 安装包挂在 GitHub Releases 页面；配置好 `TAURI_SIGNING_PRIVATE_KEY` 后还会自动生成 `latest.json` 驱动应用内自动检测升级。

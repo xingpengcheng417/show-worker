@@ -16,9 +16,9 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: --target universal-apple-darwin
+            base_args: --target universal-apple-darwin
           - platform: windows-latest
-            args: ""
+            base_args: ""
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -40,15 +40,34 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+      - name: Configure build arguments
+        id: build_args
+        shell: bash
+        env:
+          HAS_SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          ARGS="${{ matrix.base_args }}"
+          if [ "$HAS_SIGNING_KEY" != "true" ]; then
+            echo "未检测到 TAURI_SIGNING_PRIVATE_KEY，降级为无签名安装包模式（跳过 .sig 与 latest.json）"
+            ARGS="$ARGS --config src-tauri/tauri.ci-unsigned.conf.json"
+          fi
+          echo "args=$ARGS" >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          args: ${{ matrix.args }}
+          args: ${{ steps.build_args.outputs.args }}
           tagName: v__VERSION__
           releaseName: "ShowWorker v__VERSION__"
-          releaseBody: "请下载对应平台安装包，已安装旧版本用户可直接在应用内自动检测并更新。"
+          releaseBody: |
+            ### 下载与安装
+
+            - **Windows 用户**：下载 `ShowWorker___VERSION___x64-setup.exe`（简体中文安装向导，双击安装即可使用）
+            - **macOS 用户**：下载 `ShowWorker___VERSION___universal.dmg`（支持 Apple Silicon 与 Intel 双架构）
+
+            > 已安装签名版旧客户端的用户可在应用内自动检测并一键升级。
           releaseDraft: false
           prerelease: false

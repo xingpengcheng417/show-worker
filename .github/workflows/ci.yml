@@ -29,9 +29,9 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: --target universal-apple-darwin --config '{"bundle":{"createUpdaterArtifacts":false}}'
+            args: --target universal-apple-darwin --config src-tauri/tauri.ci-unsigned.conf.json
           - platform: windows-latest
-            args: --config '{"bundle":{"createUpdaterArtifacts":false}}'
+            args: --config src-tauri/tauri.ci-unsigned.conf.json
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
