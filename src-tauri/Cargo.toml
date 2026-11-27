@@ -2,7 +2,7 @@
 name = "show-worker"
 version = "0.1.0"
 description = "Cross-platform Typora-style Markdown Editor built with Tauri 2"
-authors = ["xingpengcheng"]
+authors = ["大侠的橙子"]
 edition = "2021"
 default-run = "ShowWorker"
 

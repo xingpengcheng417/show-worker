@@ -1,6 +1,7 @@
 {
   "name": "show-worker",
   "version": "0.1.0",
+  "author": "大侠的橙子",
   "private": true,
   "type": "module",
   "scripts": {

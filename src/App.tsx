@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { extractFrontmatter } from '@/core/markdown/frontmatter';
 import { isModKey } from '@/core/shortcuts/keymap';
 import { MilkdownEditor, type MilkdownEditorHandle } from '@/editor/wysiwyg/MilkdownEditor';
@@ -11,6 +11,7 @@ import { Sidebar } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { TitleBar } from './components/TitleBar';
 import { UpdateModal } from './components/UpdateModal';
+import { AboutModal } from './components/AboutModal';
 import { isTauriRuntime } from './services/platform';
 import { shouldPromptUpdate } from './services/updater/updateService';
 
@@ -42,6 +43,7 @@ const SLASH_SNIPPETS: { label: string; desc: string; snippet: string }[] = [
 
 export function App() {
   const store = useEditorStore();
+  const [aboutModalOpen, setAboutModalOpen] = useState(false);
   const wysiwygRef = useRef<MilkdownEditorHandle | null>(null);
   const canvasScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -142,6 +144,7 @@ export function App() {
         onToggleFocus={() => store.toggleFocusMode()}
         onToggleTypewriter={() => store.toggleTypewriterMode()}
         onChangeTheme={(theme) => store.setTheme(theme)}
+        onOpenAbout={() => setAboutModalOpen(true)}
       />
 
       {store.availableUpdate &&
@@ -413,6 +416,13 @@ export function App() {
         onInstall={() => void store.installAvailableUpdate()}
         onSkipVersion={() => store.skipAvailableUpdate()}
         onToggleAutoCheck={() => store.toggleAutoCheckUpdates()}
+      />
+
+      <AboutModal
+        open={aboutModalOpen}
+        appVersion={store.appVersion}
+        onClose={() => setAboutModalOpen(false)}
+        onCheckUpdates={() => void store.checkForUpdates({ silent: false })}
       />
     </div>
   );

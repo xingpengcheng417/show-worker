@@ -4,6 +4,7 @@ import {
   Eye,
   Focus,
   FolderOpen,
+  Info,
   Maximize2,
   Minus,
   PanelLeft,
@@ -32,6 +33,7 @@ interface TitleBarProps {
   onToggleFocus: () => void;
   onToggleTypewriter: () => void;
   onChangeTheme: (theme: ThemeId) => void;
+  onOpenAbout: () => void;
 }
 
 export function TitleBar({
@@ -50,6 +52,7 @@ export function TitleBar({
   onToggleFocus,
   onToggleTypewriter,
   onChangeTheme,
+  onOpenAbout,
 }: TitleBarProps) {
   const isApple = isApplePlatform(platform);
   const isWindows = platform === 'windows' || platform === 'web';
@@ -233,6 +236,17 @@ export function TitleBar({
           <option value="night-slate">深夜黑</option>
           <option value="system">跟随系统</option>
         </select>
+
+        <button
+          type="button"
+          onClick={onOpenAbout}
+          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs cursor-pointer hover:opacity-80"
+          style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-hover)' }}
+          title="关于 ShowWorker"
+        >
+          <Info className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">关于</span>
+        </button>
 
         {isWindows && (
           <div
