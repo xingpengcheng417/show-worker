@@ -18,15 +18,25 @@ import type {
   RichBlockItem,
   SearchHit,
   ThemeId,
+  UpdateInfo,
+  UpdateProgress,
+  UpdateStatus,
   ViewMode,
   Workspace,
 } from '@/core/models';
-import { storageAdapter } from '@/services/platform';
+import { isTauriRuntime, storageAdapter } from '@/services/platform';
 import {
   clearRecoverySnapshot,
   getRecoverySnapshot,
   saveRecoverySnapshot,
 } from '@/services/recovery/snapshotStore';
+import {
+  checkAppUpdate,
+  getAppVersion,
+  installAppUpdate,
+  shouldPromptUpdate,
+} from '@/services/updater/updateService';
+import type { Update } from '@tauri-apps/plugin-updater';
 
 const SETTINGS_KEY = 'showworker:app-settings:v1';
 const MACHINE_KEY = 'showworker:machine-state:v1';
@@ -42,6 +52,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   focusModeDefault: false,
   typewriterModeDefault: false,
   spellcheckEnabled: false,
+  autoCheckUpdates: true,
   assetPolicy: {
     strategy: 'relative_assets',
     namingRule: 'timestamp_uuid',
@@ -86,6 +97,7 @@ function makeDocId(uri: string): string {
 let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingUpdateHandle: Update | null = null;
 
 export interface EditorState {
   platform: PlatformKind;
@@ -105,6 +117,13 @@ export interface EditorState {
   pendingRecovery: RecoverySnapshot | null;
   toastMessage: string | null;
   isBootstrapped: boolean;
+  appVersion: string;
+  updateStatus: UpdateStatus;
+  availableUpdate: UpdateInfo | null;
+  updateProgress: UpdateProgress;
+  updateError: string | null;
+  updateModalOpen: boolean;
+  updateBannerDismissed: boolean;
 
   bootstrap: () => Promise<void>;
   openWorkspace: () => Promise<void>;
@@ -133,6 +152,12 @@ export interface EditorState {
   dismissRecoverySnapshot: () => void;
   resolveExternalConflict: (action: 'reload' | 'keep') => Promise<void>;
   notify: (message: string) => void;
+  checkForUpdates: (options?: { silent?: boolean }) => Promise<void>;
+  installAvailableUpdate: () => Promise<void>;
+  skipAvailableUpdate: () => void;
+  setUpdateModalOpen: (open: boolean) => void;
+  dismissUpdateBanner: () => void;
+  toggleAutoCheckUpdates: () => void;
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -153,6 +178,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pendingRecovery: null,
   toastMessage: null,
   isBootstrapped: false,
+  appVersion: '0.1.0',
+  updateStatus: 'idle',
+  availableUpdate: null,
+  updateProgress: { downloadedBytes: 0, percent: 0 },
+  updateError: null,
+  updateModalOpen: false,
+  updateBannerDismissed: false,
 
   notify(message: string) {
     set({ toastMessage: message });
@@ -173,7 +205,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     };
 
     try {
-      const ws = await storageAdapter.getDefaultWorkspace();
+      const [ws, appVersion] = await Promise.all([
+        storageAdapter.getDefaultWorkspace(),
+        getAppVersion(),
+      ]);
       const tree = await storageAdapter.listTree(ws.rootUri);
       set({
         platform,
@@ -182,6 +217,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         machineState: machine,
         focusMode: settings.focusModeDefault,
         typewriterMode: settings.typewriterModeDefault,
+        appVersion,
         isBootstrapped: true,
       });
 
@@ -602,6 +638,116 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       });
       await get().saveDocument(true);
     }
+  },
+
+  async checkForUpdates(options) {
+    const silent = options?.silent ?? false;
+    if (!isTauriRuntime) {
+      if (!silent) {
+        set({
+          updateModalOpen: true,
+          updateStatus: 'error',
+          updateError: '当前处于浏览器预览模式，自动更新仅在桌面端安装包内生效。',
+        });
+      }
+      return;
+    }
+
+    set({
+      updateStatus: 'checking',
+      updateError: null,
+      ...(silent ? {} : { updateModalOpen: true }),
+    });
+
+    try {
+      const res = await checkAppUpdate();
+      if (res.status === 'available') {
+        pendingUpdateHandle = res.handle;
+        const shouldShow = shouldPromptUpdate(
+          res.info.version,
+          get().settings.skippedUpdateVersion,
+        );
+        set({
+          updateStatus: 'available',
+          availableUpdate: res.info,
+          updateBannerDismissed: !shouldShow,
+          ...(silent ? {} : { updateModalOpen: true }),
+        });
+      } else {
+        pendingUpdateHandle = null;
+        set({
+          updateStatus: 'up-to-date',
+          availableUpdate: null,
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (silent) {
+        set({ updateStatus: 'idle' });
+      } else {
+        set({
+          updateStatus: 'error',
+          updateError: message,
+        });
+      }
+    }
+  },
+
+  async installAvailableUpdate() {
+    if (!pendingUpdateHandle) {
+      await get().checkForUpdates({ silent: false });
+      return;
+    }
+    set({
+      updateStatus: 'downloading',
+      updateProgress: { downloadedBytes: 0, percent: 0 },
+      updateError: null,
+    });
+
+    try {
+      await installAppUpdate(pendingUpdateHandle, (progress) => {
+        set({
+          updateStatus: progress.percent >= 100 ? 'installing' : 'downloading',
+          updateProgress: progress,
+        });
+      });
+    } catch (err) {
+      set({
+        updateStatus: 'error',
+        updateError: err instanceof Error ? err.message : String(err),
+      });
+    }
+  },
+
+  skipAvailableUpdate() {
+    const ver = get().availableUpdate?.version;
+    const nextSettings = { ...get().settings, skippedUpdateVersion: ver };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(nextSettings));
+    set({
+      settings: nextSettings,
+      updateModalOpen: false,
+      updateBannerDismissed: true,
+    });
+    if (ver) {
+      get().notify(`已跳过 v${ver} 更新提醒`);
+    }
+  },
+
+  setUpdateModalOpen(open) {
+    set({ updateModalOpen: open });
+  },
+
+  dismissUpdateBanner() {
+    set({ updateBannerDismissed: true });
+  },
+
+  toggleAutoCheckUpdates() {
+    const nextSettings = {
+      ...get().settings,
+      autoCheckUpdates: !get().settings.autoCheckUpdates,
+    };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(nextSettings));
+    set({ settings: nextSettings });
   },
 }));
 

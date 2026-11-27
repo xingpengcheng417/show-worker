@@ -141,8 +141,32 @@ export interface AppSettings {
   focusModeDefault: boolean;
   typewriterModeDefault: boolean;
   spellcheckEnabled: boolean;
+  autoCheckUpdates: boolean;
+  skippedUpdateVersion?: string;
   assetPolicy: AssetPolicy;
   keybindings: Record<string, string>;
+}
+
+export type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'installing'
+  | 'up-to-date'
+  | 'error';
+
+export interface UpdateInfo {
+  version: string;
+  currentVersion: string;
+  date?: string;
+  body?: string;
+}
+
+export interface UpdateProgress {
+  downloadedBytes: number;
+  totalBytes?: number;
+  percent: number;
 }
 
 export interface LocalMachineState {

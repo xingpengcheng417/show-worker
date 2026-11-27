@@ -10,6 +10,9 @@ import { RichPreviewPanel } from './components/RichPreviewPanel';
 import { Sidebar } from './components/Sidebar';
 import { StatusBar } from './components/StatusBar';
 import { TitleBar } from './components/TitleBar';
+import { UpdateModal } from './components/UpdateModal';
+import { isTauriRuntime } from './services/platform';
+import { shouldPromptUpdate } from './services/updater/updateService';
 
 const SLASH_SNIPPETS: { label: string; desc: string; snippet: string }[] = [
   { label: '二级标题', desc: '## 章节标题', snippet: '\n## 新章节\n' },
@@ -45,6 +48,18 @@ export function App() {
   useEffect(() => {
     void store.bootstrap();
   }, [store]);
+
+  // 桌面端启动 3 秒后静默自动检测更新
+  useEffect(() => {
+    if (!store.isBootstrapped || !isTauriRuntime || !store.settings.autoCheckUpdates) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      void store.checkForUpdates({ silent: true });
+    }, 3000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.isBootstrapped]);
 
   // 全局快捷键：Mod+/ 切换模式，Mod+S 保存，Mod+\ 切换侧栏，Mod+Shift+F 搜索
   useEffect(() => {
@@ -128,6 +143,41 @@ export function App() {
         onToggleTypewriter={() => store.toggleTypewriterMode()}
         onChangeTheme={(theme) => store.setTheme(theme)}
       />
+
+      {store.availableUpdate &&
+        !store.updateBannerDismissed &&
+        !store.updateModalOpen &&
+        shouldPromptUpdate(store.availableUpdate.version, store.settings.skippedUpdateVersion) && (
+          <div
+            className="px-4 py-2 text-xs flex items-center justify-between border-b"
+            style={{
+              backgroundColor: 'var(--accent-soft)',
+              borderColor: 'var(--border-subtle)',
+            }}
+          >
+            <span>
+              发现 ShowWorker 新版本 <strong>v{store.availableUpdate.version}</strong>（当前 v{store.appVersion}）
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => store.setUpdateModalOpen(true)}
+                className="px-2.5 py-1 rounded font-medium cursor-pointer"
+                style={{ backgroundColor: 'var(--accent-primary)', color: 'var(--accent-fg)' }}
+              >
+                查看更新
+              </button>
+              <button
+                type="button"
+                onClick={() => store.dismissUpdateBanner()}
+                className="px-2.5 py-1 rounded border cursor-pointer"
+                style={{ borderColor: 'var(--border-subtle)' }}
+              >
+                稍后
+              </button>
+            </div>
+          </div>
+        )}
 
       {/* 崩溃恢复与外部修改冲突提醒条 */}
       {store.pendingRecovery && (
@@ -329,8 +379,17 @@ export function App() {
         <StatusBar
           session={store.session}
           platform={store.platform}
+          appVersion={store.appVersion}
+          updateStatus={store.updateStatus}
+          availableUpdate={store.availableUpdate}
           onSave={() => void store.saveDocument(true)}
           onToggleEol={() => store.toggleEol()}
+          onOpenUpdateModal={() => {
+            store.setUpdateModalOpen(true);
+            if (store.updateStatus === 'idle' || store.updateStatus === 'up-to-date' || store.updateStatus === 'error') {
+              void store.checkForUpdates({ silent: false });
+            }
+          }}
         />
       </div>
 
@@ -340,6 +399,21 @@ export function App() {
           onAction={handleMobileAction}
         />
       )}
+
+      <UpdateModal
+        open={store.updateModalOpen}
+        appVersion={store.appVersion}
+        status={store.updateStatus}
+        updateInfo={store.availableUpdate}
+        progress={store.updateProgress}
+        errorMessage={store.updateError}
+        autoCheckUpdates={store.settings.autoCheckUpdates}
+        onClose={() => store.setUpdateModalOpen(false)}
+        onCheckNow={() => void store.checkForUpdates({ silent: false })}
+        onInstall={() => void store.installAvailableUpdate()}
+        onSkipVersion={() => store.skipAvailableUpdate()}
+        onToggleAutoCheck={() => store.toggleAutoCheckUpdates()}
+      />
     </div>
   );
 }

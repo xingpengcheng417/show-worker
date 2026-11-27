@@ -30,6 +30,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -55,6 +56,17 @@
         "languages": ["SimpChinese", "English"],
         "displayLanguageSelector": false,
         "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY2NDczMkQ3RkRCQjc3NkQKUldSdGQ3djkxekpIOWk4TGovc29KTFdDbi9ZMjZyRjhSSHJrWktMRkk4bVFiUlRmM0QvZDl4OWoK",
+      "endpoints": [
+        "https://github.com/xingpengcheng417/show-worker/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

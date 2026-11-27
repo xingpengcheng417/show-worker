@@ -51,3 +51,15 @@ npm run tauri dev
 npm run tauri build
 # 单文件便携版 exe：npm run tauri build -- --no-bundle（输出至 src-tauri/target/release/ShowWorker.exe 及 release/ShowWorker.exe）
 ```
+
+### 3. 自动更新与新版本发布指南
+
+桌面端已内置 `tauri-plugin-updater`，启动 3 秒后自动检测 GitHub Releases 的 `latest.json` 清单，也可点击右下角状态栏版本号手动检查并一键下载重启更新。
+
+1. **首次配置 GitHub Actions 签名私钥**（仅需一次）：
+   - 在 GitHub 仓库打开 `Settings -> Secrets and variables -> Actions -> New repository secret`。
+   - 新建 Secret `TAURI_SIGNING_PRIVATE_KEY`，值填入本机签名私钥文件内容（例如 `C:\Users\79235\.tauri\show-worker.key`）。
+2. **发布新版本（例如 `0.2.0`）**：
+   - 将 `package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 中的版本号同步升级为 `0.2.0`。
+   - 提交代码后打标签并推送：`git tag v0.2.0 && git push origin main --tags`。
+   - `.github/workflows/release.yml` 会自动构建签名版 Windows/macOS 安装包并生成 `latest.json`，旧版本客户端即可自动检测到更新。

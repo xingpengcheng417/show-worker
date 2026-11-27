@@ -26,9 +26,14 @@ impl Default for AppState {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .manage(AppState::default())
         .register_uri_scheme_protocol("md-asset", protocol::handle_md_asset)
         .setup(|app| {
+            #[cfg(desktop)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
+
             #[cfg(target_os = "macos")]
             {
                 if let Some(win) = app.get_webview_window("main") {
