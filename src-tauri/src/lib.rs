@@ -5,6 +5,7 @@ mod storage;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
+#[cfg(target_os = "macos")]
 use tauri::Manager;
 
 pub struct AppState {
@@ -51,5 +52,5 @@ pub fn run() {
             commands::doc_export_html,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running MarkFlow application");
+        .expect("error while running ShowWorker application");
 }

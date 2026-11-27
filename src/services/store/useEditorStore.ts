@@ -28,8 +28,8 @@ import {
   saveRecoverySnapshot,
 } from '@/services/recovery/snapshotStore';
 
-const SETTINGS_KEY = 'markflow:app-settings:v1';
-const MACHINE_KEY = 'markflow:machine-state:v1';
+const SETTINGS_KEY = 'showworker:app-settings:v1';
+const MACHINE_KEY = 'showworker:machine-state:v1';
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'paper-light',

@@ -37,14 +37,14 @@ pub fn workspace_default(app: tauri::AppHandle, state: State<'_, AppState>) -> R
         .path()
         .document_dir()
         .unwrap_or_else(|_| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
-        .join("MarkFlowNotes");
+        .join("ShowWorkerNotes");
     fs::create_dir_all(&doc_dir).map_err(|e| format!("初始化默认笔记目录失败: {e}"))?;
 
-    let welcome = doc_dir.join("欢迎使用 MarkFlow.md");
+    let welcome = doc_dir.join("欢迎使用 ShowWorker.md");
     if !welcome.exists() {
         let _ = fs::write(
             &welcome,
-            "# 欢迎使用 MarkFlow\n\n这是一个基于 Tauri 2 + Milkdown 构建的跨平台所见即所得 Markdown 编辑器。\n\n- 按下 `Ctrl+/`（macOS 为 `⌘+/`）切换源码视图\n- 支持直接粘贴截图落盘到 `./assets/`\n",
+            "# 欢迎使用 ShowWorker\n\n这是一个基于 Tauri 2 + Milkdown 构建的跨平台所见即所得 Markdown 编辑器。\n\n- 按下 `Ctrl+/`（macOS 为 `⌘+/`）切换源码视图\n- 支持直接粘贴截图落盘到 `./assets/`\n",
         );
     }
 

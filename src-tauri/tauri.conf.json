@@ -1,8 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MarkFlow",
+  "productName": "ShowWorker",
+  "mainBinaryName": "ShowWorker",
   "version": "0.1.0",
-  "identifier": "com.xingpengcheng.markflow",
+  "identifier": "com.xingpengcheng.showworker",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "MarkFlow",
+        "title": "ShowWorker",
         "width": 1200,
         "height": 780,
         "minWidth": 720,
@@ -48,6 +49,13 @@
     },
     "iOS": {
       "minimumSystemVersion": "15.0"
+    },
+    "windows": {
+      "nsis": {
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "installMode": "currentUser"
+      }
     }
   }
 }

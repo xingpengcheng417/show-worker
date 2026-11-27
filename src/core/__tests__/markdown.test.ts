@@ -67,7 +67,7 @@ describe('大纲提取、富文本块与 POSIX 路径', () => {
   });
 
   it('统计中英文混排词数并标准化 POSIX 路径', () => {
-    const stats = computeDocumentStats('你好 MarkFlow 世界');
+    const stats = computeDocumentStats('你好 ShowWorker 世界');
     expect(stats.words).toBe(5);
     expect(formatPosixRelativePath('.\\assets\\my img.png', true)).toBe(
       './assets/my%20img.png',

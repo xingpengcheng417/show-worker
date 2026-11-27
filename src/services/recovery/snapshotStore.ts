@@ -1,6 +1,6 @@
 import type { RecoverySnapshot } from '@/core/models';
 
-const SNAPSHOT_STORAGE_KEY = 'markflow:recovery-snapshots:v1';
+const SNAPSHOT_STORAGE_KEY = 'showworker:recovery-snapshots:v1';
 
 function readAll(): Record<string, RecoverySnapshot> {
   try {

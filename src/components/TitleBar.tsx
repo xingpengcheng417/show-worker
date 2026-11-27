@@ -78,9 +78,9 @@ export function TitleBar({
                 color: 'var(--accent-fg)',
               }}
             >
-              M
+              S
             </span>
-            <span className="text-xs font-semibold tracking-tight">MarkFlow</span>
+            <span className="text-xs font-semibold tracking-tight">ShowWorker</span>
           </div>
         )}
 

@@ -116,7 +116,7 @@ body,
 }
 
 /* Milkdown Typora 风格沉浸排版 */
-.markflow-prose .milkdown .ProseMirror {
+.showworker-prose .milkdown .ProseMirror {
   max-width: var(--editor-max-width);
   margin: 0 auto;
   padding: 1.5rem 1.25rem 6rem;
@@ -127,12 +127,12 @@ body,
   word-break: break-word;
 }
 
-.markflow-prose .milkdown .ProseMirror > * {
+.showworker-prose .milkdown .ProseMirror > * {
   margin: 0.75em 0;
   transition: opacity 180ms ease;
 }
 
-.markflow-prose .milkdown .ProseMirror h1 {
+.showworker-prose .milkdown .ProseMirror h1 {
   font-size: 1.95em;
   font-weight: 700;
   line-height: 1.3;
@@ -141,21 +141,21 @@ body,
   margin-top: 1.2em;
 }
 
-.markflow-prose .milkdown .ProseMirror h2 {
+.showworker-prose .milkdown .ProseMirror h2 {
   font-size: 1.48em;
   font-weight: 650;
   line-height: 1.35;
   margin-top: 1.35em;
 }
 
-.markflow-prose .milkdown .ProseMirror h3 {
+.showworker-prose .milkdown .ProseMirror h3 {
   font-size: 1.2em;
   font-weight: 600;
   line-height: 1.4;
   margin-top: 1.15em;
 }
 
-.markflow-prose .milkdown .ProseMirror blockquote {
+.showworker-prose .milkdown .ProseMirror blockquote {
   border-left: 3px solid var(--accent-primary);
   background: var(--bg-quote);
   padding: 0.55em 1em;
@@ -163,7 +163,7 @@ body,
   color: var(--text-muted);
 }
 
-.markflow-prose .milkdown .ProseMirror code {
+.showworker-prose .milkdown .ProseMirror code {
   background: var(--bg-code);
   padding: 0.15em 0.4em;
   border-radius: 5px;
@@ -171,7 +171,7 @@ body,
   font-family: var(--font-mono-win);
 }
 
-.markflow-prose .milkdown .ProseMirror pre {
+.showworker-prose .milkdown .ProseMirror pre {
   background: var(--bg-code);
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
@@ -180,23 +180,23 @@ body,
   line-height: 1.6;
 }
 
-.markflow-prose .milkdown .ProseMirror pre code {
+.showworker-prose .milkdown .ProseMirror pre code {
   background: transparent;
   padding: 0;
   font-size: 0.86em;
 }
 
-.markflow-prose .milkdown .ProseMirror ul {
+.showworker-prose .milkdown .ProseMirror ul {
   list-style: disc;
   padding-left: 1.6em;
 }
 
-.markflow-prose .milkdown .ProseMirror ol {
+.showworker-prose .milkdown .ProseMirror ol {
   list-style: decimal;
   padding-left: 1.6em;
 }
 
-.markflow-prose .milkdown .ProseMirror li[data-item-type="task"] {
+.showworker-prose .milkdown .ProseMirror li[data-item-type="task"] {
   list-style: none;
   margin-left: -1.2em;
   display: flex;
@@ -204,43 +204,43 @@ body,
   gap: 0.5em;
 }
 
-.markflow-prose .milkdown .ProseMirror li[data-item-type="task"] input[type="checkbox"] {
+.showworker-prose .milkdown .ProseMirror li[data-item-type="task"] input[type="checkbox"] {
   margin-top: 0.35em;
   accent-color: var(--accent-primary);
   cursor: pointer;
 }
 
-.markflow-prose .milkdown .ProseMirror table {
+.showworker-prose .milkdown .ProseMirror table {
   width: 100%;
   border-collapse: collapse;
   margin: 1.1em 0;
   font-size: 0.92em;
 }
 
-.markflow-prose .milkdown .ProseMirror th,
-.markflow-prose .milkdown .ProseMirror td {
+.showworker-prose .milkdown .ProseMirror th,
+.showworker-prose .milkdown .ProseMirror td {
   border: 1px solid var(--border-subtle);
   padding: 0.5em 0.75em;
 }
 
-.markflow-prose .milkdown .ProseMirror th {
+.showworker-prose .milkdown .ProseMirror th {
   background: var(--bg-code);
   font-weight: 600;
 }
 
-.markflow-prose .milkdown .ProseMirror hr {
+.showworker-prose .milkdown .ProseMirror hr {
   border: none;
   border-top: 1px solid var(--border-subtle);
   margin: 1.6em 0;
 }
 
-.markflow-prose .milkdown .ProseMirror a {
+.showworker-prose .milkdown .ProseMirror a {
   color: var(--accent-primary);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.markflow-prose .milkdown .ProseMirror img {
+.showworker-prose .milkdown .ProseMirror img {
   max-width: 100%;
   border-radius: 8px;
   border: 1px solid var(--border-subtle);

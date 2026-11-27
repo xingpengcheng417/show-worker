@@ -355,7 +355,7 @@ export const MilkdownEditor = forwardRef<MilkdownEditorHandle, MilkdownEditorPro
     };
 
     return (
-      <div className="relative markflow-prose">
+      <div className="relative showworker-prose">
         {/* 表格上下文悬浮工具条 */}
         {inTable && (
           <div

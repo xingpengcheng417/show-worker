@@ -10,8 +10,8 @@ import type {
   WriteDocResult,
 } from './storageAdapter';
 
-const STORAGE_DOCS_KEY = 'markflow:web-docs:v1';
-const STORAGE_ASSETS_KEY = 'markflow:web-assets:v1';
+const STORAGE_DOCS_KEY = 'showworker:web-docs:v1';
+const STORAGE_ASSETS_KEY = 'showworker:web-assets:v1';
 
 interface VirtualDoc {
   uri: string;
@@ -33,7 +33,7 @@ platform: [Windows, macOS, iPadOS, iOS]
 version: 0.1.0
 ---
 
-# MarkFlow · Typora 风格跨平台编辑器
+# ShowWorker · Typora 风格跨平台编辑器
 
 以 **Tauri 2.x** 为容器，结合 **Milkdown** 所见即所得内核与 **CodeMirror 6** 源码视图，实现 Windows 与 macOS 桌面端的原生轻量写作体验，并保持向 iPadOS / iOS 延展的架构弹性。
 
@@ -84,7 +84,7 @@ export interface DocumentSession {
     modifiedAt: Date.now() - 1800_000,
     content: `---
 title: MVP 产品验证清单
-owner: MarkFlow
+owner: ShowWorker
 ---
 
 # MVP 产品原型验收清单

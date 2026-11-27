@@ -23,7 +23,7 @@ const SLASH_SNIPPETS: { label: string; desc: string; snippet: string }[] = [
   {
     label: '代码块',
     desc: '```typescript',
-    snippet: '\n```typescript\nconsole.log("MarkFlow");\n```\n',
+    snippet: '\n```typescript\nconsole.log("ShowWorker");\n```\n',
   },
   {
     label: 'KaTeX 公式块',
@@ -218,7 +218,7 @@ export function App() {
               style={{ color: 'var(--text-muted)' }}
             >
               <p className="font-medium text-base mb-2" style={{ color: 'var(--text-primary)' }}>
-                欢迎使用 MarkFlow
+                欢迎使用 ShowWorker
               </p>
               <p>请在左侧选择或新建一篇 Markdown 文档，或打开本地工作区文件夹。</p>
             </div>

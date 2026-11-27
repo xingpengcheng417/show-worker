@@ -51,3 +51,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: ${{ matrix.args }}
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShowWorker-${{ matrix.platform }}
+          path: |
+            src-tauri/target/**/bundle/nsis/*.exe
+            src-tauri/target/**/bundle/dmg/*.dmg

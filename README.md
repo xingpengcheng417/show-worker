@@ -1,4 +1,4 @@
-# MarkFlow · 跨平台 Typora 风格 Markdown 编辑器
+# ShowWorker · 跨平台 Typora 风格 Markdown 编辑器
 
 基于 **Tauri 2.x + React + TypeScript + Milkdown + CodeMirror 6** 构建的轻量级 Markdown 编辑器，面向 **Windows / macOS** 桌面端并预留 **iPadOS / iOS** 扩展能力。
 
@@ -49,4 +49,5 @@ npm run build     # 生产构建
 ```bash
 npm run tauri dev
 npm run tauri build
+# 单文件便携版 exe：npm run tauri build -- --no-bundle（输出至 src-tauri/target/release/ShowWorker.exe 及 release/ShowWorker.exe）
 ```
