@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calcDownloadPercent,
   checkAppUpdate,
+  compareSemver,
   shouldPromptUpdate,
 } from '@/services/updater/updateService';
 
@@ -11,6 +12,14 @@ describe('自动更新辅助逻辑', () => {
     expect(calcDownloadPercent(50, 0)).toBe(0);
     expect(calcDownloadPercent(256, 1024)).toBe(25);
     expect(calcDownloadPercent(1500, 1024)).toBe(100);
+  });
+
+  it('正确比较语义化版本号（含 v 前缀与多位数段）', () => {
+    expect(compareSemver('v0.10.0', '0.2.0')).toBe(1);
+    expect(compareSemver('0.1.0', 'v0.1.0')).toBe(0);
+    expect(compareSemver('0.1.0', '0.1.1')).toBe(-1);
+    expect(compareSemver('0.2.0', '0.2.0-beta.1')).toBe(1);
+    expect(compareSemver('0.2.0-beta.2', '0.2.0-beta.1')).toBe(1);
   });
 
   it('跳过指定版本时不再弹窗提醒，新版本出现后恢复提醒', () => {

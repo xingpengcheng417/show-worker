@@ -87,6 +87,8 @@ pub fn run() {
             commands::asset_save_image,
             commands::search_workspace,
             commands::doc_export_html,
+            commands::check_github_latest_release,
+            commands::open_external_url,
         ])
         .build(tauri::generate_context!())
         .expect("error while building ShowWorker application");

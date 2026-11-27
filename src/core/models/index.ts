@@ -161,6 +161,9 @@ export interface UpdateInfo {
   currentVersion: string;
   date?: string;
   body?: string;
+  installMode?: 'native' | 'external';
+  downloadUrl?: string;
+  releaseUrl?: string;
 }
 
 export interface UpdateProgress {

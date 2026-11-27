@@ -132,6 +132,19 @@ export function UpdateModal({
                 {updateInfo.body?.trim() || '包含体验优化与稳定性修复。'}
               </div>
 
+              {updateInfo.installMode === 'external' && (
+                <div
+                  className="rounded-lg border px-2.5 py-2 leading-relaxed"
+                  style={{
+                    borderColor: 'var(--border-subtle)',
+                    backgroundColor: 'var(--bg-canvas)',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  当前发布包未启用应用内静默签名升级，点击后将打开浏览器下载最新安装包，双击覆盖安装即可保留配置。
+                </div>
+              )}
+
               {(status === 'downloading' || status === 'installing') && (
                 <div className="pt-1 space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -204,7 +217,7 @@ export function UpdateModal({
                   color: 'var(--accent-fg)',
                 }}
               >
-                立即更新并重启
+                {updateInfo.installMode === 'external' ? '前往下载安装包' : '立即更新并重启'}
               </button>
             </>
           ) : (

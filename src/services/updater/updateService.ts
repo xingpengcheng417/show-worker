@@ -1,13 +1,54 @@
 import { getVersion } from '@tauri-apps/api/app';
+import { invoke } from '@tauri-apps/api/core';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check, type DownloadEvent, type Update } from '@tauri-apps/plugin-updater';
 import type { UpdateInfo, UpdateProgress } from '@/core/models';
 import { isTauriRuntime } from '@/services/platform';
 
+interface GithubReleasePayload {
+  version: string;
+  tagName: string;
+  date?: string;
+  body?: string;
+  releaseUrl: string;
+  downloadUrl: string;
+}
+
 export type UpdateCheckResult =
   | { status: 'unsupported' }
   | { status: 'up-to-date' }
-  | { status: 'available'; info: UpdateInfo; handle: Update };
+  | { status: 'available'; info: UpdateInfo; handle: Update | null };
+
+interface ParsedSemver {
+  nums: [number, number, number];
+  pre: string;
+}
+
+function parseSemver(raw: string): ParsedSemver {
+  const cleaned = raw.trim().replace(/^v/i, '');
+  const [corePart, ...preParts] = cleaned.split('-');
+  const segments = corePart.split('.').map((part) => {
+    const m = /^(\d+)/.exec(part.trim());
+    return m ? Number.parseInt(m[1], 10) : 0;
+  });
+  return {
+    nums: [segments[0] ?? 0, segments[1] ?? 0, segments[2] ?? 0],
+    pre: preParts.join('-').trim(),
+  };
+}
+
+export function compareSemver(a: string, b: string): number {
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
+  for (let i = 0; i < 3; i += 1) {
+    if (pa.nums[i] > pb.nums[i]) return 1;
+    if (pa.nums[i] < pb.nums[i]) return -1;
+  }
+  if (!pa.pre && pb.pre) return 1;
+  if (pa.pre && !pb.pre) return -1;
+  if (pa.pre === pb.pre) return 0;
+  return pa.pre > pb.pre ? 1 : -1;
+}
 
 export function calcDownloadPercent(downloaded: number, total?: number): number {
   if (!total || total <= 0) {
@@ -42,21 +83,55 @@ export async function checkAppUpdate(): Promise<UpdateCheckResult> {
     return { status: 'unsupported' };
   }
 
-  const update = await check();
-  if (!update) {
-    return { status: 'up-to-date' };
-  }
+  try {
+    const update = await check();
+    if (!update) {
+      return { status: 'up-to-date' };
+    }
 
-  return {
-    status: 'available',
-    info: {
-      version: update.version,
-      currentVersion: update.currentVersion,
-      date: update.date,
-      body: update.body,
-    },
-    handle: update,
-  };
+    return {
+      status: 'available',
+      info: {
+        version: update.version,
+        currentVersion: update.currentVersion,
+        date: update.date,
+        body: update.body,
+        installMode: 'native',
+      },
+      handle: update,
+    };
+  } catch {
+    try {
+      const [release, currentVersion] = await Promise.all([
+        invoke<GithubReleasePayload | null>('check_github_latest_release'),
+        getAppVersion(),
+      ]);
+      if (!release || compareSemver(release.version, currentVersion) <= 0) {
+        return { status: 'up-to-date' };
+      }
+      return {
+        status: 'available',
+        info: {
+          version: release.version,
+          currentVersion,
+          date: release.date,
+          body: release.body,
+          installMode: 'external',
+          downloadUrl: release.downloadUrl,
+          releaseUrl: release.releaseUrl,
+        },
+        handle: null,
+      };
+    } catch (fallbackErr) {
+      const detail =
+        fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+      throw new Error(`无法连接 GitHub 检测更新，请检查网络或代理设置（${detail}）`);
+    }
+  }
+}
+
+export async function openExternalUpdateUrl(url: string): Promise<void> {
+  await invoke('open_external_url', { url });
 }
 
 export async function installAppUpdate(

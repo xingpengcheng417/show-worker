@@ -34,6 +34,7 @@ import {
   checkAppUpdate,
   getAppVersion,
   installAppUpdate,
+  openExternalUpdateUrl,
   shouldPromptUpdate,
 } from '@/services/updater/updateService';
 import type { Update } from '@tauri-apps/plugin-updater';
@@ -729,7 +730,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   async installAvailableUpdate() {
+    const info = get().availableUpdate;
     if (!pendingUpdateHandle) {
+      if (info?.installMode === 'external') {
+        const targetUrl = info.downloadUrl || info.releaseUrl;
+        if (targetUrl) {
+          try {
+            await openExternalUpdateUrl(targetUrl);
+            set({ updateModalOpen: false });
+            get().notify('已在浏览器打开新版安装包下载链接，下载后双击覆盖安装即可');
+          } catch (err) {
+            set({
+              updateStatus: 'error',
+              updateError: err instanceof Error ? err.message : String(err),
+            });
+          }
+          return;
+        }
+      }
       await get().checkForUpdates({ silent: false });
       return;
     }

@@ -153,6 +153,160 @@ pub fn search_workspace(root_uri: String, query: String) -> Result<Vec<SearchHit
     DesktopFsAdapter.search_workspace(&PathBuf::from(root_uri), &query)
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GithubReleaseInfo {
+    pub version: String,
+    pub tag_name: String,
+    pub date: Option<String>,
+    pub body: Option<String>,
+    pub release_url: String,
+    pub download_url: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct GithubAssetPayload {
+    name: String,
+    browser_download_url: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct GithubReleasePayload {
+    tag_name: String,
+    published_at: Option<String>,
+    body: Option<String>,
+    html_url: String,
+    #[serde(default)]
+    assets: Vec<GithubAssetPayload>,
+}
+
+fn pick_release_download_url(assets: &[(String, String)], release_url: &str, os: &str) -> String {
+    let find_suffix = |suffix: &str| {
+        assets
+            .iter()
+            .find(|(name, _)| name.to_ascii_lowercase().ends_with(suffix))
+            .map(|(_, url)| url.clone())
+    };
+
+    match os {
+        "windows" => find_suffix("-setup.exe")
+            .or_else(|| find_suffix(".exe"))
+            .or_else(|| find_suffix(".msi"))
+            .unwrap_or_else(|| release_url.to_string()),
+        "macos" => find_suffix(".dmg")
+            .or_else(|| find_suffix(".app.tar.gz"))
+            .unwrap_or_else(|| release_url.to_string()),
+        _ => release_url.to_string(),
+    }
+}
+
+fn validate_external_url(url: &str) -> Result<(), String> {
+    if url.is_empty() || (!url.starts_with("https://") && !url.starts_with("http://")) {
+        return Err("仅允许打开 http:// 或 https:// 协议的链接".to_string());
+    }
+    if url.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return Err("链接中包含非法空白或控制字符".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn check_github_latest_release() -> Result<Option<GithubReleaseInfo>, String> {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .user_agent("ShowWorker-Updater")
+            .build()
+            .map_err(|e| format!("初始化 HTTP 客户端失败: {e}"))?;
+
+        let resp = client
+            .get("https://api.github.com/repos/xingpengcheng417/show-worker/releases/latest")
+            .header("Accept", "application/vnd.github+json")
+            .send()
+            .await
+            .map_err(|e| format!("请求 GitHub Releases 失败: {e}"))?;
+
+        if resp.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+
+        if !resp.status().is_success() {
+            return Err(format!("GitHub API 返回状态码: {}", resp.status()));
+        }
+
+        let payload: GithubReleasePayload = resp
+            .json()
+            .await
+            .map_err(|e| format!("解析 GitHub Release JSON 失败: {e}"))?;
+
+        let version = payload
+            .tag_name
+            .trim_start_matches(['v', 'V'])
+            .to_string();
+
+        let assets: Vec<(String, String)> = payload
+            .assets
+            .into_iter()
+            .map(|a| (a.name, a.browser_download_url))
+            .collect();
+
+        let download_url =
+            pick_release_download_url(&assets, &payload.html_url, std::env::consts::OS);
+
+        Ok(Some(GithubReleaseInfo {
+            version,
+            tag_name: payload.tag_name,
+            date: payload.published_at,
+            body: payload.body,
+            release_url: payload.html_url,
+            download_url,
+        }))
+    }
+
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub fn open_external_url(url: String) -> Result<(), String> {
+    validate_external_url(&url)?;
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", &url])
+            .spawn()
+            .map_err(|e| format!("无法在浏览器打开链接: {e}"))?;
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("无法在浏览器打开链接: {e}"))?;
+        return Ok(());
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("无法在浏览器打开链接: {e}"))?;
+        return Ok(());
+    }
+
+    #[cfg(not(any(target_os = "windows", unix)))]
+    {
+        Err("当前平台暂不支持打开外部链接".to_string())
+    }
+}
+
 #[tauri::command]
 pub fn doc_export_html(
     app: tauri::AppHandle,
@@ -178,6 +332,7 @@ pub fn doc_export_html(
 
 #[cfg(test)]
 mod tests {
+    use super::{pick_release_download_url, validate_external_url};
     use crate::storage::normalize_path_str;
     use std::path::Path;
 
@@ -195,5 +350,46 @@ mod tests {
             normalize_path_str(Path::new(r"C:\Users\demo\note.md")),
             r"C:\Users\demo\note.md"
         );
+    }
+
+    #[test]
+    fn select_platform_installer_asset() {
+        let release_url = "https://github.com/xingpengcheng417/show-worker/releases/tag/v0.1.1";
+        let assets = vec![
+            (
+                "ShowWorker_0.1.1_x64_en-US.msi".to_string(),
+                "https://example.com/ShowWorker_0.1.1_x64_en-US.msi".to_string(),
+            ),
+            (
+                "ShowWorker_0.1.1_x64-setup.exe".to_string(),
+                "https://example.com/ShowWorker_0.1.1_x64-setup.exe".to_string(),
+            ),
+            (
+                "ShowWorker_0.1.1_universal.dmg".to_string(),
+                "https://example.com/ShowWorker_0.1.1_universal.dmg".to_string(),
+            ),
+        ];
+
+        assert_eq!(
+            pick_release_download_url(&assets, release_url, "windows"),
+            "https://example.com/ShowWorker_0.1.1_x64-setup.exe"
+        );
+        assert_eq!(
+            pick_release_download_url(&assets, release_url, "macos"),
+            "https://example.com/ShowWorker_0.1.1_universal.dmg"
+        );
+        assert_eq!(
+            pick_release_download_url(&[], release_url, "windows"),
+            release_url
+        );
+    }
+
+    #[test]
+    fn reject_unsafe_external_urls() {
+        assert!(validate_external_url("https://github.com/xingpengcheng417/show-worker").is_ok());
+        assert!(validate_external_url("http://example.com/setup.exe").is_ok());
+        assert!(validate_external_url("javascript:alert(1)").is_err());
+        assert!(validate_external_url("https://example.com/a b").is_err());
+        assert!(validate_external_url("").is_err());
     }
 }
