@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Frontend build outputs
+dist/
+dist-ssr/
+
+# Tauri & Rust build artifacts
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+*.log
+*.local
+
+# Env files
+.env
+.env.*
+!.env.example

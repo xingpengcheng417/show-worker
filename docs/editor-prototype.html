@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Typora 风格跨平台 Markdown 编辑器原型</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --background: #f3f5f8;
+      --card: #ffffff;
+      --sidebar: #f7f8fa;
+      --foreground: #1f2329;
+      --muted-foreground: #646a73;
+      --border: #e5e7eb;
+      --primary: #2563eb;
+      --primary-foreground: #ffffff;
+    }
+    /* 仅针对编辑器预览窗口内部的纸张主题变量，不声明在 :root 上 */
+    #app-window[data-canvas-theme="host"] {
+      --ed-bg: var(--card);
+      --ed-sidebar: var(--sidebar, var(--background));
+      --ed-fg: var(--foreground);
+      --ed-muted: var(--muted-foreground);
+      --ed-border: var(--border);
+      --ed-accent: var(--primary);
+      --ed-accent-fg: var(--primary-foreground);
+      --ed-code-bg: rgba(127, 127, 127, 0.08);
+      --ed-quote-bg: rgba(127, 127, 127, 0.05);
+    }
+    #app-window[data-canvas-theme="paper"] {
+      --ed-bg: #ffffff;
+      --ed-sidebar: #f7f8fa;
+      --ed-fg: #1f2329;
+      --ed-muted: #646a73;
+      --ed-border: #e5e7eb;
+      --ed-accent: #2563eb;
+      --ed-accent-fg: #ffffff;
+      --ed-code-bg: #f3f4f6;
+      --ed-quote-bg: #f8fafc;
+    }
+    #app-window[data-canvas-theme="sepia"] {
+      --ed-bg: #faf5eb;
+      --ed-sidebar: #f3ece0;
+      --ed-fg: #2c2620;
+      --ed-muted: #7a6f63;
+      --ed-border: #e6dec8;
+      --ed-accent: #b45309;
+      --ed-accent-fg: #ffffff;
+      --ed-code-bg: #efe7d6;
+      --ed-quote-bg: #f5efe2;
+    }
+    #app-window[data-canvas-theme="night"] {
+      --ed-bg: #1a1d24;
+      --ed-sidebar: #14171d;
+      --ed-fg: #d8dee9;
+      --ed-muted: #8892a4;
+      --ed-border: #2a303c;
+      --ed-accent: #60a5fa;
+      --ed-accent-fg: #0f172a;
+      --ed-code-bg: #232834;
+      --ed-quote-bg: #1f2430;
+    }
+
+    /* 细腻滚动条 */
+    .thin-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb {
+      background: rgba(128, 128, 128, 0.28);
+      border-radius: 9999px;
+    }
+    .thin-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    /* 专注模式：淡化非活动内容块 */
+    .focus-enabled .md-block {
+      opacity: 0.3;
+      transition: opacity 180ms ease;
+    }
+    .focus-enabled .md-block:hover {
+      opacity: 0.72;
+    }
+    .focus-enabled .md-block.is-active {
+      opacity: 1 !important;
+    }
+
+    /* 定位高亮动画 */
+    @keyframes flashBlock {
+      0% { box-shadow: 0 0 0 2px var(--ed-accent); }
+      100% { box-shadow: 0 0 0 2px transparent; }
+    }
+    .block-flash {
+      animation: flashBlock 1.2s ease-out;
+    }
+
+    /* 确保编辑器可编辑区域无默认蓝色粗框 */
+    [contenteditable="true"]:focus {
+      outline: none;
+    }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased min-h-screen flex flex-col p-3 md:p-5 gap-3">
+
+  <!-- 顶部原型控制栏 -->
+  <header class="bg-[var(--card)] border border-[var(--border)] rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center font-bold text-sm">M</div>
+      <div>
+        <h1 class="text-sm font-semibold text-[var(--foreground)] leading-tight">Typora 风格跨平台编辑器 · 交互原型</h1>
+        <p class="text-xs text-[var(--muted-foreground)] mt-0.5">支持四端壳层预览 · 直接点击正文可编辑 · 快捷键 <span id="hint-shortcut" class="font-mono font-medium">Ctrl+/</span> 切换源码</p>
+      </div>
+    </div>
+
+    <!-- 控制组 -->
+    <div class="flex flex-wrap items-center gap-2 text-xs">
+      <!-- 平台切换 -->
+      <div class="inline-flex items-center bg-[var(--background)] border border-[var(--border)] rounded-lg p-1 gap-1" role="group" aria-label="设备平台">
+        <button type="button" data-platform-btn="macos" class="platform-btn px-2.5 py-1 rounded-md font-medium transition">macOS</button>
+        <button type="button" data-platform-btn="windows" class="platform-btn px-2.5 py-1 rounded-md font-medium transition">Windows 11</button>
+        <button type="button" data-platform-btn="ipados" class="platform-btn px-2.5 py-1 rounded-md font-medium transition">iPadOS</button>
+        <button type="button" data-platform-btn="ios" class="platform-btn px-2.5 py-1 rounded-md font-medium transition">iOS</button>
+      </div>
+
+      <!-- 视图模式 -->
+      <div class="inline-flex items-center bg-[var(--background)] border border-[var(--border)] rounded-lg p-1 gap-1">
+        <button type="button" id="btn-mode-wysiwyg" class="px-2.5 py-1 rounded-md font-medium transition">所见即所得</button>
+        <button type="button" id="btn-mode-source" class="px-2.5 py-1 rounded-md font-medium transition">源码模式</button>
+      </div>
+
+      <!-- 侧边栏 & 专注模式 -->
+      <button type="button" id="btn-toggle-sidebar" class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] hover:opacity-90 font-medium transition">侧边栏</button>
+      <button type="button" id="btn-toggle-focus" class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] hover:opacity-90 font-medium transition">专注模式</button>
+
+      <!-- 纸张主题 -->
+      <select id="select-theme" aria-label="画布主题" class="px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)] text-xs font-medium focus:outline-none">
+        <option value="host">主题：跟随宿主</option>
+        <option value="paper">主题：纸感浅</option>
+        <option value="sepia">主题：羊皮纸</option>
+        <option value="night">主题：深夜黑</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- 模拟设备视口容器 -->
+  <main class="flex-1 flex items-start justify-center py-1">
+    <div id="device-stage" class="w-full transition-all duration-300 flex justify-center">
+      <!-- 主应用窗口 -->
+      <section id="app-window" data-canvas-theme="host"
+        class="w-full flex flex-col overflow-hidden transition-all duration-300 shadow-lg relative"
+        style="background: var(--ed-bg); color: var(--ed-fg); border: 1px solid var(--ed-border); height: 700px; border-radius: 14px;">
+
+        <!-- 自适应窗口标题栏 -->
+        <div id="app-titlebar"
+          class="shrink-0 h-10 px-3 flex items-center justify-between select-none"
+          style="background: var(--ed-sidebar); border-bottom: 1px solid var(--ed-border);">
+
+          <!-- 左侧：macOS 交通灯 + 导航按钮 / Windows 图标 -->
+          <div class="flex items-center gap-2 min-w-0">
+            <!-- macOS 交通灯避让区 -->
+            <div id="mac-traffic-lights" class="flex items-center gap-1.5 pr-3 shrink-0">
+              <span class="w-3 h-3 rounded-full inline-block" style="background:#ff5f57;"></span>
+              <span class="w-3 h-3 rounded-full inline-block" style="background:#febc2e;"></span>
+              <span class="w-3 h-3 rounded-full inline-block" style="background:#28c840;"></span>
+            </div>
+
+            <!-- Windows 应用标志 -->
+            <div id="win-brand" class="hidden items-center gap-2 pr-2 shrink-0">
+              <span class="w-5 h-5 rounded flex items-center justify-center text-xs font-bold" style="background: var(--ed-accent); color: var(--ed-accent-fg);">M</span>
+              <span class="text-xs font-semibold">MarkFlow</span>
+            </div>
+
+            <!-- 侧边栏折叠按钮 -->
+            <button type="button" id="inner-sidebar-btn" title="展开/收起侧边栏"
+              class="p-1.5 rounded-md hover:opacity-80 transition flex items-center justify-center"
+              style="color: var(--ed-muted);">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M9 4v16" />
+              </svg>
+            </button>
+
+            <!-- 当前文档面包屑与脏状态圆点 -->
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span id="title-workspace" class="text-xs truncate hidden sm:inline" style="color: var(--ed-muted);">notes /</span>
+              <span id="title-filename" class="text-xs font-semibold truncate">架构设计规范.md</span>
+              <span id="dirty-dot" class="hidden w-2 h-2 rounded-full shrink-0" style="background: var(--ed-accent);" title="有未保存更改"></span>
+            </div>
+          </div>
+
+          <!-- 右侧：插入块 / 导出 / Windows 三键 -->
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button type="button" id="btn-slash-trigger"
+              class="px-2 py-1 rounded-md text-xs font-medium border transition hover:opacity-85"
+              style="border-color: var(--ed-border); color: var(--ed-fg);">
+              插入块 /
+            </button>
+            <button type="button" id="inner-mode-btn"
+              class="px-2 py-1 rounded-md text-xs font-medium transition hover:opacity-85"
+              style="background: var(--ed-code-bg); color: var(--ed-fg);">
+              源码
+            </button>
+            <button type="button" id="btn-fake-save"
+              class="px-2 py-1 rounded-md text-xs font-medium transition hover:opacity-85"
+              style="background: var(--ed-accent); color: var(--ed-accent-fg);">
+              保存
+            </button>
+
+            <!-- Windows 11 右上角窗口控制键 -->
+            <div id="win-controls" class="hidden items-center ml-2 pl-2" style="border-left: 1px solid var(--ed-border);">
+              <span class="w-8 h-7 flex items-center justify-center text-xs hover:opacity-70 cursor-default" title="最小化">─</span>
+              <span class="w-8 h-7 flex items-center justify-center text-xs hover:opacity-70 cursor-default" title="最大化 / Snap Layouts">□</span>
+              <span class="w-8 h-7 flex items-center justify-center text-xs hover:opacity-70 cursor-default" title="关闭">✕</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 主体区域：侧边栏 + 画布 -->
+        <div class="flex-1 flex min-h-0 relative overflow-hidden">
+
+          <!-- 左侧边栏 -->
+          <aside id="app-sidebar"
+            class="w-64 shrink-0 flex flex-col min-h-0 transition-all duration-200 z-20"
+            style="background: var(--ed-sidebar); border-right: 1px solid var(--ed-border);">
+
+            <!-- 侧边栏 Tab -->
+            <div class="grid grid-cols-3 p-1.5 gap-1 shrink-0" style="border-bottom: 1px solid var(--ed-border);">
+              <button type="button" data-stab="files" class="stab-btn py-1 rounded-md text-xs font-medium transition">文件树</button>
+              <button type="button" data-stab="toc" class="stab-btn py-1 rounded-md text-xs font-medium transition">大纲</button>
+              <button type="button" data-stab="search" class="stab-btn py-1 rounded-md text-xs font-medium transition">搜索</button>
+            </div>
+
+            <!-- 面板 1：文件树 -->
+            <div id="stab-panel-files" class="flex-1 overflow-y-auto thin-scroll p-2.5 space-y-1 text-xs">
+              <div class="px-2 py-1 font-semibold flex items-center justify-between" style="color: var(--ed-muted);">
+                <span>工作区 · show-worker</span>
+                <span class="font-mono">3 md</span>
+              </div>
+              <div id="file-list" class="space-y-1"></div>
+
+              <!-- 折叠的 assets 目录 -->
+              <div class="pt-2 mt-2" style="border-top: 1px solid var(--ed-border);">
+                <button type="button" id="btn-toggle-assets" class="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left hover:opacity-80" style="color: var(--ed-muted);">
+                  <span id="assets-caret" class="inline-block transition-transform">▸</span>
+                  <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  </svg>
+                  <span class="font-medium">assets/</span>
+                  <span class="ml-auto font-mono">2</span>
+                </button>
+                <div id="assets-children" class="hidden pl-6 pr-2 py-1 space-y-1" style="color: var(--ed-muted);">
+                  <div class="flex items-center justify-between py-0.5">
+                    <span class="truncate">arch-flow.png</span>
+                    <span>48 KB</span>
+                  </div>
+                  <div class="flex items-center justify-between py-0.5">
+                    <span class="truncate">ios-bar.png</span>
+                    <span>32 KB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 面板 2：大纲 TOC -->
+            <div id="stab-panel-toc" class="hidden flex-1 overflow-y-auto thin-scroll p-2.5 space-y-1 text-xs">
+              <div class="px-2 py-1 font-semibold" style="color: var(--ed-muted);">文档大纲</div>
+              <div id="toc-list" class="space-y-0.5"></div>
+            </div>
+
+            <!-- 面板 3：工作区搜索 -->
+            <div id="stab-panel-search" class="hidden flex-1 flex flex-col min-h-0 p-2.5 gap-2 text-xs">
+              <input id="search-input" type="text" placeholder="搜索工作区正文或标题..."
+                class="w-full px-2.5 py-1.5 rounded-lg border text-xs focus:outline-none"
+                style="background: var(--ed-bg); color: var(--ed-fg); border-color: var(--ed-border);" />
+              <div id="search-results" class="flex-1 overflow-y-auto thin-scroll space-y-1.5"></div>
+            </div>
+          </aside>
+
+          <!-- 移动端抽屉遮罩 -->
+          <div id="mobile-backdrop" class="hidden absolute inset-0 bg-black/40 z-10"></div>
+
+          <!-- 中央编辑画布 -->
+          <div id="canvas-scroller" class="flex-1 overflow-y-auto thin-scroll relative">
+
+            <!-- 所见即所得视图 -->
+            <div id="wysiwyg-view" class="mx-auto px-6 md:px-12 py-8 pb-24 max-w-3xl relative">
+              <!-- YAML Frontmatter 卡片 -->
+              <div id="frontmatter-card" class="mb-5 rounded-lg border overflow-hidden text-xs"
+                style="border-color: var(--ed-border); background: var(--ed-code-bg);">
+                <button type="button" id="btn-toggle-fm"
+                  class="w-full px-3 py-2 flex items-center justify-between font-medium"
+                  style="color: var(--ed-muted);">
+                  <span>YAML Frontmatter 元数据</span>
+                  <span id="fm-state-label">点击展开</span>
+                </button>
+                <pre id="fm-content" class="hidden px-3 pb-3 pt-1 font-mono text-xs leading-relaxed overflow-x-auto" style="color: var(--ed-fg);"></pre>
+              </div>
+
+              <!-- 块列表容器 -->
+              <div id="blocks-container" class="space-y-3"></div>
+            </div>
+
+            <!-- 源码视图 -->
+            <div id="source-view" class="hidden h-full flex flex-col">
+              <div class="px-4 py-2 text-xs flex items-center justify-between shrink-0"
+                style="background: var(--ed-code-bg); border-bottom: 1px solid var(--ed-border); color: var(--ed-muted);">
+                <span>纯源码视图 (CodeMirror 6 模拟) · 修改后切回所见即所得将自动重新渲染</span>
+                <span id="source-lines-info" class="font-mono">0 行</span>
+              </div>
+              <div class="flex-1 flex min-h-0 overflow-hidden">
+                <div id="source-gutter" class="w-11 py-4 pr-2 text-right font-mono text-xs select-none overflow-hidden shrink-0 leading-6"
+                  style="background: var(--ed-sidebar); color: var(--ed-muted); border-right: 1px solid var(--ed-border);">1</div>
+                <textarea id="source-textarea" spellcheck="false"
+                  class="flex-1 p-4 font-mono text-xs leading-6 resize-none focus:outline-none thin-scroll"
+                  style="background: var(--ed-bg); color: var(--ed-fg);"></textarea>
+              </div>
+            </div>
+
+            <!-- 划词轻量浮窗工具栏 -->
+            <div id="selection-popover"
+              class="hidden fixed z-40 px-2 py-1.5 rounded-lg shadow-lg border flex items-center gap-1 text-xs"
+              style="background: var(--ed-bg); border-color: var(--ed-border); color: var(--ed-fg);">
+              <button type="button" data-fmt="bold" class="px-2 py-1 rounded hover:opacity-80 font-bold" style="background: var(--ed-code-bg);">B</button>
+              <button type="button" data-fmt="italic" class="px-2 py-1 rounded hover:opacity-80 italic" style="background: var(--ed-code-bg);">I</button>
+              <button type="button" data-fmt="code" class="px-2 py-1 rounded hover:opacity-80 font-mono" style="background: var(--ed-code-bg);">Code</button>
+              <button type="button" data-fmt="highlight" class="px-2 py-1 rounded hover:opacity-80" style="background: var(--ed-code-bg);">高亮</button>
+            </div>
+
+            <!-- 斜杠命令浮层菜单 -->
+            <div id="slash-menu"
+              class="hidden absolute z-30 w-64 rounded-xl shadow-xl border p-1.5 text-xs"
+              style="background: var(--ed-bg); border-color: var(--ed-border); color: var(--ed-fg); top: 18px; right: 24px;">
+              <div class="px-2.5 py-1.5 font-semibold flex items-center justify-between" style="color: var(--ed-muted);">
+                <span>插入 Markdown 块</span>
+                <button type="button" id="btn-close-slash" class="hover:opacity-75">✕</button>
+              </div>
+              <div id="slash-options" class="space-y-0.5 mt-1"></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 桌面/iPad 底部状态栏 -->
+        <footer id="desktop-statusbar"
+          class="shrink-0 h-8 px-3 flex items-center justify-between text-xs select-none"
+          style="background: var(--ed-sidebar); border-top: 1px solid var(--ed-border); color: var(--ed-muted);">
+          <div class="flex items-center gap-3">
+            <button type="button" id="status-save-btn" class="flex items-center gap-1.5 hover:opacity-85">
+              <span id="status-save-dot" class="w-2 h-2 rounded-full" style="background: #22c55e;"></span>
+              <span id="status-save-text">已保存</span>
+            </button>
+            <span id="status-stats">0 字 · 约 1 分钟阅读</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <button type="button" id="btn-toggle-eol" class="px-1.5 py-0.5 rounded hover:opacity-80 font-mono" style="background: var(--ed-code-bg);">LF</button>
+            <span class="font-mono">UTF-8</span>
+            <span id="status-mode-hint" class="hidden sm:inline font-mono">WYSIWYG · Ctrl+/</span>
+          </div>
+        </footer>
+
+        <!-- iOS 专属底部触控快捷符号条 -->
+        <footer id="ios-toolbar"
+          class="hidden shrink-0 px-2 py-2 flex items-center gap-1.5 overflow-x-auto thin-scroll text-xs"
+          style="background: var(--ed-sidebar); border-top: 1px solid var(--ed-border);">
+          <button type="button" data-ios-insert="# " class="px-2.5 py-1.5 rounded-md font-semibold shrink-0" style="background: var(--ed-bg); border: 1px solid var(--ed-border);">#</button>
+          <button type="button" data-ios-insert="**重点**" class="px-2.5 py-1.5 rounded-md font-bold shrink-0" style="background: var(--ed-bg); border: 1px solid var(--ed-border);">**</button>
+          <button type="button" data-ios-insert="`code`" class="px-2.5 py-1.5 rounded-md font-mono shrink-0" style="background: var(--ed-bg); border: 1px solid var(--ed-border);">`</button>
+          <button type="button" data-ios-action="task" class="px-2.5 py-1.5 rounded-md shrink-0" style="background: var(--ed-bg); border: 1px solid var(--ed-border);">- [ ]</button>
+          <button type="button" data-ios-action="table" class="px-2.5 py-1.5 rounded-md shrink-0" style="background: var(--ed-bg); border: 1px solid var(--ed-border);">表格</button>
+          <button type="button" data-ios-action="source" class="px-2.5 py-1.5 rounded-md font-medium shrink-0 ml-auto" style="background: var(--ed-accent); color: var(--ed-accent-fg);">源码</button>
+        </footer>
+
+        <!-- 轻量 Toast 提示 -->
+        <div id="toast-pill"
+          class="hidden absolute bottom-12 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-full text-xs font-medium shadow-md"
+          style="background: var(--ed-fg); color: var(--ed-bg);"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      // =====================================================
+      // 1. 内置示例文档数据
+      // =====================================================
+      const DOCS = [
+        {
+          id: 'arch',
+          name: '架构设计规范.md',
+          eol: 'LF',
+          frontmatter: 'title: 跨平台 Markdown 编辑器架构\nplatform: [Windows, macOS, iPadOS, iOS]\nversion: 0.1.0',
+          blocks: [
+            { id: 'b1', type: 'h1', text: '跨平台 Typora 风格编辑器设计' },
+            { id: 'b2', type: 'p', text: '以 Tauri 2.x 为核心容器，实现 Windows 与 macOS 桌面端的原生轻量写作体验，并保持向 iPadOS / iOS 平滑延伸的架构弹性。直接点击任意段落即可编辑，或选中文字体验划词格式工具。' },
+            { id: 'b3', type: 'h2', text: '核心交互与渲染模块' },
+            { id: 'b4', type: 'quote', text: '设计原则：日常写作只见纸面与文字，语法符号在光标离开后自动退场；按下 Mod + / 即可瞬间进入源码模式精确掌控细节。' },
+            { id: 'b5', type: 'task', checked: true, text: '完成 Milkdown 所见即所得与 CodeMirror 6 源码锚点同步设计' },
+            { id: 'b6', type: 'task', checked: false, text: '接入 md-asset:// 自定义协议，支持 ./assets/ 相对路径图片安全加载' },
+            { id: 'b7', type: 'h2', text: '四端能力对比表（点击单元格呼出表格工具条）' },
+            {
+              id: 'b8',
+              type: 'table',
+              headers: ['平台', '窗口形态', '存储机制', '状态'],
+              align: ['left', 'left', 'left', 'center'],
+              rows: [
+                ['macOS', '交通灯 Overlay', 'DesktopFs', 'P0 已规划'],
+                ['Windows 11', '自绘标题栏 + Snap', 'DesktopFs', 'P0 已规划'],
+                ['iPadOS / iOS', '抽屉 + 快捷符号条', 'Swift Bookmark', 'P1 预留']
+              ]
+            },
+            { id: 'b9', type: 'h2', text: '数学公式与流程图卡片（点击就地展开源码）' },
+            { id: 'b10', type: 'math', tex: 'E = mc^2 + \\int_{0}^{\\infty} e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}', expanded: false },
+            {
+              id: 'b11',
+              type: 'mermaid',
+              code: 'flowchart LR\n  User["用户输入"] --> Core["Editor Core"]\n  Core --> Snapshot["崩溃恢复快照"]\n  Core --> Atomic["Rust 原子写入"]',
+              showSource: false
+            },
+            {
+              id: 'b12',
+              type: 'code',
+              lang: 'typescript',
+              code: 'export interface DocumentSession {\n  docId: string;\n  eol: "LF" | "CRLF";\n  isDirty: boolean;\n  viewMode: "wysiwyg" | "source";\n}'
+            }
+          ]
+        },
+        {
+          id: 'proto',
+          name: '产品原型清单.md',
+          eol: 'LF',
+          frontmatter: 'title: MVP 阶段产品验证清单\nowner: 设计与工程团队',
+          blocks: [
+            { id: 'p1', type: 'h1', text: 'MVP 产品原型验收清单' },
+            { id: 'p2', type: 'p', text: '本篇用于核对一期上线前必须打通的交互细节，尤其关注双端热键习惯与中文输入法体验。' },
+            { id: 'p3', type: 'h2', text: '输入法与快捷键校验' },
+            { id: 'p4', type: 'task', checked: true, text: '监听 compositionstart/end，避免拼音选词期误触发 InputRules' },
+            { id: 'p5', type: 'task', checked: true, text: '抽象 Mod 键：macOS 映射 Cmd，Windows 映射 Ctrl' },
+            { id: 'p6', type: 'task', checked: false, text: '粘贴网页富文本自动洗净内联样式并转标准 GFM' },
+            { id: 'p7', type: 'h2', text: '典型排版性能基准' },
+            {
+              id: 'p8',
+              type: 'table',
+              headers: ['文档规模', '打开耗时', '滚动帧率'],
+              align: ['left', 'right', 'right'],
+              rows: [
+                ['1,000 行', '18 ms', '60 fps'],
+                ['5,000 行', '46 ms', '60 fps'],
+                ['15,000 行', '源码降级', '60 fps']
+              ]
+            }
+          ]
+        },
+        {
+          id: 'compat',
+          name: '双端兼容笔记.md',
+          eol: 'CRLF',
+          frontmatter: 'title: Windows 与 Apple 生态兼容备忘\neol_policy: preserve',
+          blocks: [
+            { id: 'c1', type: 'h1', text: 'Windows 与 macOS 兼容关键规范' },
+            { id: 'c2', type: 'p', text: '即使在 Windows 上创建并编辑文档，写入 Markdown 的图片相对路径也必须统一使用正斜杠，防止 macOS 与 iOS 打开后图片失效。' },
+            { id: 'c3', type: 'h2', text: '路径与换行符约束' },
+            {
+              id: 'c4',
+              type: 'code',
+              lang: 'rust',
+              code: '// 统一标准化相对路径为 POSIX 格式\nlet normalized = rel_path.replace("\\\\", "/");\nassert!(!normalized.contains("\\\\"));'
+            },
+            { id: 'c5', type: 'quote', text: '提示：观察本文件右下角状态栏，其换行符默认保持为 CRLF，点击可演示切换为 LF。' }
+          ]
+        }
+      ];
+
+      // =====================================================
+      // 2. 应用状态
+      // =====================================================
+      const state = {
+        platform: 'macos', // 'macos' | 'windows' | 'ipados' | 'ios'
+        viewMode: 'wysiwyg', // 'wysiwyg' | 'source'
+        sidebarOpen: true,
+        sidebarTab: 'files', // 'files' | 'toc' | 'search'
+        focusMode: false,
+        theme: 'host',
+        activeDocId: 'arch',
+        activeBlockId: 'b2',
+        activeTableId: null,
+        dirtyByDoc: { arch: false, proto: false, compat: false },
+        frontmatterOpen: false,
+        slashOpen: false,
+        assetsOpen: false,
+        docs: JSON.parse(JSON.stringify(DOCS))
+      };
+
+      // =====================================================
+      // 3. DOM 引用
+      // =====================================================
+      const el = {
+        deviceStage: document.getElementById('device-stage'),
+        appWindow: document.getElementById('app-window'),
+        macTraffic: document.getElementById('mac-traffic-lights'),
+        winBrand: document.getElementById('win-brand'),
+        winControls: document.getElementById('win-controls'),
+        hintShortcut: document.getElementById('hint-shortcut'),
+        appSidebar: document.getElementById('app-sidebar'),
+        mobileBackdrop: document.getElementById('mobile-backdrop'),
+        titleFilename: document.getElementById('title-filename'),
+        dirtyDot: document.getElementById('dirty-dot'),
+        fileList: document.getElementById('file-list'),
+        tocList: document.getElementById('toc-list'),
+        searchInput: document.getElementById('search-input'),
+        searchResults: document.getElementById('search-results'),
+        wysiwygView: document.getElementById('wysiwyg-view'),
+        sourceView: document.getElementById('source-view'),
+        blocksContainer: document.getElementById('blocks-container'),
+        fmContent: document.getElementById('fm-content'),
+        fmStateLabel: document.getElementById('fm-state-label'),
+        sourceTextarea: document.getElementById('source-textarea'),
+        sourceGutter: document.getElementById('source-gutter'),
+        sourceLinesInfo: document.getElementById('source-lines-info'),
+        desktopStatusbar: document.getElementById('desktop-statusbar'),
+        iosToolbar: document.getElementById('ios-toolbar'),
+        statusSaveDot: document.getElementById('status-save-dot'),
+        statusSaveText: document.getElementById('status-save-text'),
+        statusStats: document.getElementById('status-stats'),
+        btnToggleEol: document.getElementById('btn-toggle-eol'),
+        statusModeHint: document.getElementById('status-mode-hint'),
+        selectionPopover: document.getElementById('selection-popover'),
+        slashMenu: document.getElementById('slash-menu'),
+        slashOptions: document.getElementById('slash-options'),
+        toastPill: document.getElementById('toast-pill'),
+        btnModeWysiwyg: document.getElementById('btn-mode-wysiwyg'),
+        btnModeSource: document.getElementById('btn-mode-source'),
+        btnToggleSidebar: document.getElementById('btn-toggle-sidebar'),
+        btnToggleFocus: document.getElementById('btn-toggle-focus'),
+        innerModeBtn: document.getElementById('inner-mode-btn')
+      };
+
+      let toastTimer = null;
+      function showToast(msg) {
+        el.toastPill.textContent = msg;
+        el.toastPill.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.toastPill.classList.add('hidden'), 1800);
+      }
+
+      function getActiveDoc() {
+        return state.docs.find(d => d.id === state.activeDocId) || state.docs[0];
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      // =====================================================
+      // 4. Markdown 序列化与轻量解析（WYSIWYG <-> Source 联动）
+      // =====================================================
+      function serializeDocToMarkdown(doc) {
+        const parts = [];
+        if (doc.frontmatter && doc.frontmatter.trim()) {
+          parts.push('---\n' + doc.frontmatter.trim() + '\n---');
+        }
+        for (const b of doc.blocks) {
+          if (b.type === 'h1') parts.push('# ' + b.text);
+          else if (b.type === 'h2') parts.push('## ' + b.text);
+          else if (b.type === 'h3') parts.push('### ' + b.text);
+          else if (b.type === 'p') parts.push(b.text);
+          else if (b.type === 'quote') parts.push('> ' + b.text);
+          else if (b.type === 'task') parts.push(`- [${b.checked ? 'x' : ' '}] ` + b.text);
+          else if (b.type === 'code') parts.push('```' + (b.lang || '') + '\n' + b.code + '\n```');
+          else if (b.type === 'math') parts.push('$$\n' + b.tex + '\n$$');
+          else if (b.type === 'mermaid') parts.push('```mermaid\n' + b.code + '\n```');
+          else if (b.type === 'table') {
+            const headerLine = '| ' + b.headers.join(' | ') + ' |';
+            const alignLine = '| ' + b.headers.map((_, idx) => {
+              const a = (b.align && b.align[idx]) || 'left';
+              if (a === 'center') return ':---:';
+              if (a === 'right') return '---:';
+              return ':---';
+            }).join(' | ') + ' |';
+            const rowLines = b.rows.map(r => '| ' + r.join(' | ') + ' |');
+            parts.push([headerLine, alignLine, ...rowLines].join('\n'));
+          }
+        }
+        return parts.join('\n\n');
+      }
+
+      function parseMarkdownToDoc(mdText, doc) {
+        let rest = mdText.replace(/\r\n/g, '\n');
+        let fm = '';
+        const fmMatch = rest.match(/^---\n([\s\S]*?)\n---\n*/);
+        if (fmMatch) {
+          fm = fmMatch[1].trim();
+          rest = rest.slice(fmMatch[0].length);
+        }
+        doc.frontmatter = fm;
+
+        const lines = rest.split('\n');
+        const newBlocks = [];
+        let i = 0;
+        let seq = 1;
+        const nextId = () => 'blk_' + Date.now() + '_' + (seq++);
+
+        while (i < lines.length) {
+          const line = lines[i];
+          if (!line.trim()) {
+            i++;
+            continue;
+          }
+          // 代码块或 Mermaid
+          if (line.startsWith('```')) {
+            const lang = line.slice(3).trim();
+            const buf = [];
+            i++;
+            while (i < lines.length && !lines[i].startsWith('```')) {
+              buf.push(lines[i]);
+              i++;
+            }
+            i++;
+            if (lang === 'mermaid') {
+              newBlocks.push({ id: nextId(), type: 'mermaid', code: buf.join('\n'), showSource: false });
+            } else {
+              newBlocks.push({ id: nextId(), type: 'code', lang: lang || 'text', code: buf.join('\n') });
+            }
+            continue;
+          }
+          // 数学块
+          if (line.trim() === '$$') {
+            const buf = [];
+            i++;
+            while (i < lines.length && lines[i].trim() !== '$$') {
+              buf.push(lines[i]);
+              i++;
+            }
+            i++;
+            newBlocks.push({ id: nextId(), type: 'math', tex: buf.join('\n'), expanded: false });
+            continue;
+          }
+          // 表格
+          if (line.trim().startsWith('|') && i + 1 < lines.length && lines[i + 1].includes('---')) {
+            const splitRow = (r) => r.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+            const headers = splitRow(line);
+            const sepCells = splitRow(lines[i + 1]);
+            const align = sepCells.map(c => {
+              if (c.startsWith(':') && c.endsWith(':')) return 'center';
+              if (c.endsWith(':')) return 'right';
+              return 'left';
+            });
+            i += 2;
+            const rows = [];
+            while (i < lines.length && lines[i].trim().startsWith('|')) {
+              const cells = splitRow(lines[i]);
+              while (cells.length < headers.length) cells.push('');
+              rows.push(cells.slice(0, headers.length));
+              i++;
+            }
+            newBlocks.push({ id: nextId(), type: 'table', headers, align, rows });
+            continue;
+          }
+          // 标题
+          if (line.startsWith('# ')) {
+            newBlocks.push({ id: nextId(), type: 'h1', text: line.slice(2).trim() });
+            i++; continue;
+          }
+          if (line.startsWith('## ')) {
+            newBlocks.push({ id: nextId(), type: 'h2', text: line.slice(3).trim() });
+            i++; continue;
+          }
+          if (line.startsWith('### ')) {
+            newBlocks.push({ id: nextId(), type: 'h3', text: line.slice(4).trim() });
+            i++; continue;
+          }
+          // 引用
+          if (line.startsWith('> ')) {
+            newBlocks.push({ id: nextId(), type: 'quote', text: line.slice(2).trim() });
+            i++; continue;
+          }
+          // 任务列表
+          const taskMatch = line.match(/^- \[([ xX])\] (.*)$/);
+          if (taskMatch) {
+            newBlocks.push({ id: nextId(), type: 'task', checked: taskMatch[1].toLowerCase() === 'x', text: taskMatch[2] });
+            i++; continue;
+          }
+          // 普通段落
+          const pBuf = [line];
+          i++;
+          while (
+            i < lines.length &&
+            lines[i].trim() &&
+            !lines[i].startsWith('#') &&
+            !lines[i].startsWith('> ') &&
+            !lines[i].startsWith('```') &&
+            !lines[i].trim().startsWith('$$') &&
+            !lines[i].match(/^- \[[ xX]\] /) &&
+            !lines[i].trim().startsWith('|')
+          ) {
+            pBuf.push(lines[i]);
+            i++;
+          }
+          newBlocks.push({ id: nextId(), type: 'p', text: pBuf.join(' ') });
+        }
+        doc.blocks = newBlocks.length ? newBlocks : [{ id: nextId(), type: 'p', text: '' }];
+      }
+
+      // =====================================================
+      // 5. 统计、状态与侧边栏渲染
+      // =====================================================
+      function markDirty() {
+        state.dirtyByDoc[state.activeDocId] = true;
+        renderChromeStatus();
+      }
+
+      function computeStats(doc) {
+        const raw = serializeDocToMarkdown(doc);
+        const chars = raw.replace(/\s+/g, '').length;
+        const mins = Math.max(1, Math.ceil(chars / 350));
+        return { chars, mins };
+      }
+
+      function renderChromeStatus() {
+        const doc = getActiveDoc();
+        const isDirty = !!state.dirtyByDoc[doc.id];
+        el.titleFilename.textContent = doc.name;
+        el.dirtyDot.classList.toggle('hidden', !isDirty);
+
+        el.statusSaveDot.style.background = isDirty ? '#f59e0b' : '#22c55e';
+        el.statusSaveText.textContent = isDirty ? '未保存 (点击保存)' : '已保存';
+
+        const stats = computeStats(doc);
+        el.statusStats.textContent = `${stats.chars} 字符 · 约 ${stats.mins} 分钟阅读`;
+        el.btnToggleEol.textContent = doc.eol;
+
+        const isApple = state.platform === 'macos' || state.platform === 'ipados' || state.platform === 'ios';
+        const shortcutText = isApple ? '⌘+/' : 'Ctrl+/';
+        el.hintShortcut.textContent = shortcutText;
+        el.statusModeHint.textContent = `${state.viewMode === 'wysiwyg' ? 'WYSIWYG' : 'SOURCE'} · ${shortcutText}`;
+      }
+
+      function renderFileList() {
+        el.fileList.innerHTML = '';
+        for (const doc of state.docs) {
+          const active = doc.id === state.activeDocId;
+          const dirty = !!state.dirtyByDoc[doc.id];
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition';
+          btn.style.background = active ? 'var(--ed-code-bg)' : 'transparent';
+          btn.style.color = active ? 'var(--ed-fg)' : 'var(--ed-muted)';
+          btn.style.fontWeight = active ? '600' : '400';
+          btn.innerHTML = `
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>
+            </svg>
+            <span class="truncate flex-1">${escapeHtml(doc.name)}</span>
+            ${dirty ? '<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: var(--ed-accent);"></span>' : ''}
+          `;
+          btn.addEventListener('click', () => {
+            switchDocument(doc.id);
+            if (state.platform === 'ios') {
+              state.sidebarOpen = false;
+              renderPlatformLayout();
+            }
+          });
+          el.fileList.appendChild(btn);
+        }
+      }
+
+      function renderToc() {
+        const doc = getActiveDoc();
+        const headings = doc.blocks.filter(b => b.type === 'h1' || b.type === 'h2' || b.type === 'h3');
+        el.tocList.innerHTML = '';
+        if (!headings.length) {
+          el.tocList.innerHTML = '<div class="px-2 py-2" style="color: var(--ed-muted);">当前文档暂无标题</div>';
+          return;
+        }
+        for (const h of headings) {
+          const pad = h.type === 'h1' ? 'pl-2' : h.type === 'h2' ? 'pl-5' : 'pl-8';
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = `w-full text-left py-1.5 pr-2 ${pad} rounded-md truncate hover:opacity-80 transition`;
+          item.style.color = h.type === 'h1' ? 'var(--ed-fg)' : 'var(--ed-muted)';
+          item.style.fontWeight = h.type === 'h1' ? '600' : '400';
+          item.textContent = h.text || '(未命名标题)';
+          item.addEventListener('click', () => {
+            if (state.viewMode !== 'wysiwyg') {
+              setViewMode('wysiwyg');
+            }
+            const target = document.querySelector(`[data-block-id="${h.id}"]`);
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              target.classList.remove('block-flash');
+              void target.offsetWidth;
+              target.classList.add('block-flash');
+              state.activeBlockId = h.id;
+              updateFocusActiveClass();
+            }
+          });
+          el.tocList.appendChild(item);
+        }
+      }
+
+      function renderSearchResults() {
+        const q = el.searchInput.value.trim().toLowerCase();
+        el.searchResults.innerHTML = '';
+        if (!q) {
+          el.searchResults.innerHTML = '<div class="px-1 py-2" style="color: var(--ed-muted);">输入关键词检索所有文档（例如：Tauri、公式、CRLF）</div>';
+          return;
+        }
+        const hits = [];
+        for (const doc of state.docs) {
+          for (const b of doc.blocks) {
+            const text = b.text || b.code || b.tex || (b.headers ? b.headers.join(' ') + ' ' + b.rows.flat().join(' ') : '');
+            if (text.toLowerCase().includes(q)) {
+              hits.push({ docId: doc.id, docName: doc.name, blockId: b.id, snippet: text.slice(0, 56) });
+            }
+          }
+        }
+        if (!hits.length) {
+          el.searchResults.innerHTML = '<div class="px-1 py-2" style="color: var(--ed-muted);">未找到匹配内容</div>';
+          return;
+        }
+        for (const hit of hits) {
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'w-full text-left p-2 rounded-lg border transition hover:opacity-85';
+          card.style.borderColor = 'var(--ed-border)';
+          card.style.background = 'var(--ed-bg)';
+          card.innerHTML = `
+            <div class="font-semibold truncate" style="color: var(--ed-accent);">${escapeHtml(hit.docName)}</div>
+            <div class="mt-0.5 truncate" style="color: var(--ed-muted);">${escapeHtml(hit.snippet)}</div>
+          `;
+          card.addEventListener('click', () => {
+            switchDocument(hit.docId);
+            setViewMode('wysiwyg');
+            setTimeout(() => {
+              const target = document.querySelector(`[data-block-id="${hit.blockId}"]`);
+              if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                target.classList.add('block-flash');
+              }
+            }, 40);
+          });
+          el.searchResults.appendChild(card);
+        }
+      }
+
+      function updateFocusActiveClass() {
+        el.blocksContainer.classList.toggle('focus-enabled', state.focusMode);
+        el.blocksContainer.querySelectorAll('.md-block').forEach(node => {
+          node.classList.toggle('is-active', node.dataset.blockId === state.activeBlockId);
+        });
+      }
+
+      // =====================================================
+      // 6. WYSIWYG 块渲染引擎
+      // =====================================================
+      function renderWysiwyg() {
+        const doc = getActiveDoc();
+
+        // Frontmatter
+        el.fmContent.textContent = doc.frontmatter || '(无 Frontmatter)';
+        el.fmContent.classList.toggle('hidden', !state.frontmatterOpen);
+        el.fmStateLabel.textContent = state.frontmatterOpen ? '点击收起' : '点击展开';
+
+        el.blocksContainer.innerHTML = '';
+
+        doc.blocks.forEach((block) => {
+          const wrap = document.createElement('div');
+          wrap.className = 'md-block rounded-lg px-2 py-1 transition';
+          wrap.dataset.blockId = block.id;
+          if (block.id === state.activeBlockId) wrap.classList.add('is-active');
+
+          wrap.addEventListener('mousedown', () => {
+            state.activeBlockId = block.id;
+            if (block.type !== 'table') state.activeTableId = null;
+            updateFocusActiveClass();
+          });
+
+          if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+            const cls = block.type === 'h1'
+              ? 'text-2xl font-bold tracking-tight pb-2 border-b'
+              : block.type === 'h2'
+                ? 'text-xl font-semibold mt-3'
+                : 'text-base font-semibold mt-2';
+            const ed = document.createElement('div');
+            ed.contentEditable = 'true';
+            ed.className = cls;
+            if (block.type === 'h1') ed.style.borderColor = 'var(--ed-border)';
+            ed.textContent = block.text;
+            ed.addEventListener('input', () => {
+              block.text = ed.innerText.replace(/\n/g, ' ');
+              markDirty();
+              renderToc();
+              renderFileList();
+            });
+            wrap.appendChild(ed);
+          } else if (block.type === 'p') {
+            const ed = document.createElement('div');
+            ed.contentEditable = 'true';
+            ed.className = 'text-sm leading-7';
+            ed.textContent = block.text;
+            ed.addEventListener('input', () => {
+              block.text = ed.innerText;
+              if (block.text.trim() === '/') {
+                openSlashMenu();
+              }
+              markDirty();
+              renderFileList();
+            });
+            wrap.appendChild(ed);
+          } else if (block.type === 'quote') {
+            const box = document.createElement('div');
+            box.className = 'pl-4 pr-3 py-2 rounded-r-lg border-l-4 text-sm leading-6';
+            box.style.borderColor = 'var(--ed-accent)';
+            box.style.background = 'var(--ed-quote-bg)';
+            box.style.color = 'var(--ed-muted)';
+            box.contentEditable = 'true';
+            box.textContent = block.text;
+            box.addEventListener('input', () => {
+              block.text = box.innerText;
+              markDirty();
+              renderFileList();
+            });
+            wrap.appendChild(box);
+          } else if (block.type === 'task') {
+            const row = document.createElement('div');
+            row.className = 'flex items-start gap-2.5 py-0.5';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = !!block.checked;
+            cb.className = 'mt-1.5 w-4 h-4 rounded cursor-pointer accent-blue-600 shrink-0';
+            const ed = document.createElement('div');
+            ed.contentEditable = 'true';
+            ed.className = 'flex-1 text-sm leading-6' + (block.checked ? ' line-through opacity-60' : '');
+            ed.textContent = block.text;
+            cb.addEventListener('change', () => {
+              block.checked = cb.checked;
+              ed.className = 'flex-1 text-sm leading-6' + (block.checked ? ' line-through opacity-60' : '');
+              markDirty();
+              renderFileList();
+            });
+            ed.addEventListener('input', () => {
+              block.text = ed.innerText;
+              markDirty();
+              renderFileList();
+            });
+            row.appendChild(cb);
+            row.appendChild(ed);
+            wrap.appendChild(row);
+          } else if (block.type === 'table') {
+            const tWrap = document.createElement('div');
+            tWrap.className = 'relative my-2';
+
+            // 表格悬浮工具条
+            const bar = document.createElement('div');
+            bar.className = (state.activeTableId === block.id ? 'flex' : 'hidden') + ' items-center gap-1.5 mb-2 px-2 py-1 rounded-lg border text-xs w-fit shadow-sm';
+            bar.style.background = 'var(--ed-sidebar)';
+            bar.style.borderColor = 'var(--ed-border)';
+
+            const addRowBtn = document.createElement('button');
+            addRowBtn.type = 'button';
+            addRowBtn.className = 'px-2 py-0.5 rounded hover:opacity-80 font-medium';
+            addRowBtn.style.background = 'var(--ed-code-bg)';
+            addRowBtn.textContent = '+ 行';
+            addRowBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              block.rows.push(block.headers.map(() => '新单元格'));
+              markDirty();
+              renderWysiwyg();
+            });
+
+            const addColBtn = document.createElement('button');
+            addColBtn.type = 'button';
+            addColBtn.className = 'px-2 py-0.5 rounded hover:opacity-80 font-medium';
+            addColBtn.style.background = 'var(--ed-code-bg)';
+            addColBtn.textContent = '+ 列';
+            addColBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              block.headers.push('新列');
+              block.align.push('left');
+              block.rows.forEach(r => r.push('内容'));
+              markDirty();
+              renderWysiwyg();
+            });
+
+            const alignBtn = document.createElement('button');
+            alignBtn.type = 'button';
+            alignBtn.className = 'px-2 py-0.5 rounded hover:opacity-80 font-medium';
+            alignBtn.style.background = 'var(--ed-code-bg)';
+            alignBtn.textContent = '切换末列对齐';
+            alignBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const idx = block.align.length - 1;
+              const order = ['left', 'center', 'right'];
+              const next = order[(order.indexOf(block.align[idx] || 'left') + 1) % 3];
+              block.align[idx] = next;
+              markDirty();
+              renderWysiwyg();
+              showToast('末列对齐已切为：' + next);
+            });
+
+            bar.appendChild(addRowBtn);
+            bar.appendChild(addColBtn);
+            bar.appendChild(alignBtn);
+            tWrap.appendChild(bar);
+
+            const tbl = document.createElement('table');
+            tbl.className = 'w-full border-collapse text-xs rounded-lg overflow-hidden';
+            tbl.style.border = '1px solid var(--ed-border)';
+
+            const thead = document.createElement('thead');
+            const htr = document.createElement('tr');
+            htr.style.background = 'var(--ed-code-bg)';
+            block.headers.forEach((h, cIdx) => {
+              const th = document.createElement('th');
+              th.className = 'px-3 py-2 font-semibold border';
+              th.style.borderColor = 'var(--ed-border)';
+              th.style.textAlign = (block.align && block.align[cIdx]) || 'left';
+              th.contentEditable = 'true';
+              th.textContent = h;
+              th.addEventListener('focus', () => {
+                if (state.activeTableId !== block.id) {
+                  state.activeTableId = block.id;
+                  bar.classList.remove('hidden');
+                  bar.classList.add('flex');
+                }
+              });
+              th.addEventListener('input', () => {
+                block.headers[cIdx] = th.innerText;
+                markDirty();
+              });
+              htr.appendChild(th);
+            });
+            thead.appendChild(htr);
+            tbl.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            block.rows.forEach((row, rIdx) => {
+              const tr = document.createElement('tr');
+              row.forEach((cell, cIdx) => {
+                const td = document.createElement('td');
+                td.className = 'px-3 py-2 border';
+                td.style.borderColor = 'var(--ed-border)';
+                td.style.textAlign = (block.align && block.align[cIdx]) || 'left';
+                td.contentEditable = 'true';
+                td.textContent = cell;
+                td.addEventListener('focus', () => {
+                  if (state.activeTableId !== block.id) {
+                    state.activeTableId = block.id;
+                    bar.classList.remove('hidden');
+                    bar.classList.add('flex');
+                  }
+                });
+                td.addEventListener('input', () => {
+                  block.rows[rIdx][cIdx] = td.innerText;
+                  markDirty();
+                });
+                tr.appendChild(td);
+              });
+              tbody.appendChild(tr);
+            });
+            tbl.appendChild(tbody);
+            tWrap.appendChild(tbl);
+            wrap.appendChild(tWrap);
+          } else if (block.type === 'code') {
+            const card = document.createElement('div');
+            card.className = 'rounded-xl border overflow-hidden my-1';
+            card.style.borderColor = 'var(--ed-border)';
+            card.style.background = 'var(--ed-code-bg)';
+
+            const top = document.createElement('div');
+            top.className = 'px-3 py-1.5 flex items-center justify-between text-xs border-b';
+            top.style.borderColor = 'var(--ed-border)';
+            top.style.color = 'var(--ed-muted)';
+            top.innerHTML = `<span class="font-mono font-medium">${escapeHtml(block.lang || 'text')}</span>`;
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'px-2 py-0.5 rounded hover:opacity-80';
+            copyBtn.textContent = '复制';
+            copyBtn.addEventListener('click', () => {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(block.code).catch(() => {});
+              }
+              showToast('代码已复制到剪贴板');
+            });
+            top.appendChild(copyBtn);
+
+            const pre = document.createElement('pre');
+            pre.className = 'p-3 font-mono text-xs leading-6 overflow-x-auto';
+            pre.contentEditable = 'true';
+            pre.textContent = block.code;
+            pre.addEventListener('input', () => {
+              block.code = pre.innerText;
+              markDirty();
+            });
+
+            card.appendChild(top);
+            card.appendChild(pre);
+            wrap.appendChild(card);
+          } else if (block.type === 'math') {
+            const card = document.createElement('div');
+            card.className = 'rounded-xl border p-3 my-1 transition cursor-pointer';
+            card.style.borderColor = block.expanded ? 'var(--ed-accent)' : 'var(--ed-border)';
+            card.style.background = 'var(--ed-quote-bg)';
+
+            if (block.expanded) {
+              const label = document.createElement('div');
+              label.className = 'text-xs font-medium mb-1.5 flex items-center justify-between';
+              label.style.color = 'var(--ed-accent)';
+              label.innerHTML = '<span>KaTeX 公式源码（就地编辑）</span>';
+              const doneBtn = document.createElement('button');
+              doneBtn.type = 'button';
+              doneBtn.className = 'px-2 py-0.5 rounded text-xs';
+              doneBtn.style.background = 'var(--ed-code-bg)';
+              doneBtn.style.color = 'var(--ed-fg)';
+              doneBtn.textContent = '收起';
+              doneBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                block.expanded = false;
+                renderWysiwyg();
+              });
+              label.appendChild(doneBtn);
+
+              const inp = document.createElement('textarea');
+              inp.rows = 2;
+              inp.className = 'w-full p-2 rounded-lg border font-mono text-xs focus:outline-none mb-2';
+              inp.style.background = 'var(--ed-bg)';
+              inp.style.color = 'var(--ed-fg)';
+              inp.style.borderColor = 'var(--ed-border)';
+              inp.value = block.tex;
+              inp.addEventListener('click', e => e.stopPropagation());
+              inp.addEventListener('input', () => {
+                block.tex = inp.value;
+                preview.textContent = renderPrettyMath(block.tex);
+                markDirty();
+              });
+              card.appendChild(label);
+              card.appendChild(inp);
+            }
+
+            const preview = document.createElement('div');
+            preview.className = 'text-center py-2 font-serif text-base tracking-wide';
+            preview.textContent = renderPrettyMath(block.tex);
+            card.appendChild(preview);
+
+            card.addEventListener('click', () => {
+              if (!block.expanded) {
+                block.expanded = true;
+                renderWysiwyg();
+              }
+            });
+            wrap.appendChild(card);
+          } else if (block.type === 'mermaid') {
+            const card = document.createElement('div');
+            card.className = 'rounded-xl border p-3 my-1';
+            card.style.borderColor = 'var(--ed-border)';
+            card.style.background = 'var(--ed-bg)';
+
+            const hdr = document.createElement('div');
+            hdr.className = 'flex items-center justify-between text-xs mb-2';
+            hdr.style.color = 'var(--ed-muted)';
+            hdr.innerHTML = '<span class="font-medium">Mermaid 架构图卡片</span>';
+            const toggleBtn = document.createElement('button');
+            toggleBtn.type = 'button';
+            toggleBtn.className = 'px-2 py-0.5 rounded hover:opacity-80';
+            toggleBtn.style.background = 'var(--ed-code-bg)';
+            toggleBtn.style.color = 'var(--ed-fg)';
+            toggleBtn.textContent = block.showSource ? '隐藏源码' : '查看/编辑源码';
+            toggleBtn.addEventListener('click', () => {
+              block.showSource = !block.showSource;
+              renderWysiwyg();
+            });
+            hdr.appendChild(toggleBtn);
+            card.appendChild(hdr);
+
+            if (block.showSource) {
+              const ta = document.createElement('textarea');
+              ta.rows = 4;
+              ta.className = 'w-full p-2 mb-2 rounded-lg border font-mono text-xs focus:outline-none';
+              ta.style.background = 'var(--ed-code-bg)';
+              ta.style.color = 'var(--ed-fg)';
+              ta.style.borderColor = 'var(--ed-border)';
+              ta.value = block.code;
+              ta.addEventListener('input', () => {
+                block.code = ta.value;
+                markDirty();
+              });
+              card.appendChild(ta);
+            }
+
+            // 精致 SVG 示意图
+            const svgWrap = document.createElement('div');
+            svgWrap.className = 'py-2 flex justify-center overflow-x-auto';
+            svgWrap.innerHTML = `
+              <svg width="460" height="84" viewBox="0 0 460 84" class="max-w-full">
+                <defs>
+                  <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                    <path d="M0,0 L8,4 L0,8 Z" fill="currentColor" />
+                  </marker>
+                </defs>
+                <rect x="8" y="22" width="96" height="40" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" />
+                <text x="56" y="46" text-anchor="middle" font-size="12" fill="currentColor">用户输入</text>
+                <line x1="104" y1="42" x2="146" y2="42" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrow)" />
+                <rect x="150" y="22" width="110" height="40" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" />
+                <text x="205" y="46" text-anchor="middle" font-size="12" fill="currentColor">Editor Core</text>
+                <line x1="260" y1="34" x2="318" y2="22" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrow)" />
+                <line x1="260" y1="50" x2="318" y2="62" stroke="currentColor" stroke-width="1.5" marker-end="url(#arrow)" />
+                <rect x="322" y="4" width="126" height="32" rx="7" fill="none" stroke="currentColor" stroke-width="1.4" />
+                <text x="385" y="24" text-anchor="middle" font-size="12" fill="currentColor">恢复快照落盘</text>
+                <rect x="322" y="48" width="126" height="32" rx="7" fill="none" stroke="currentColor" stroke-width="1.4" />
+                <text x="385" y="68" text-anchor="middle" font-size="12" fill="currentColor">Rust 原子写入</text>
+              </svg>
+            `;
+            card.appendChild(svgWrap);
+            wrap.appendChild(card);
+          }
+
+          el.blocksContainer.appendChild(wrap);
+        });
+
+        updateFocusActiveClass();
+      }
+
+      function renderPrettyMath(tex) {
+        return tex
+          .replace(/\\int_\{0\}\^\{\\infty\}/g, '∫₀^∞')
+          .replace(/\\frac\{\\sqrt\{\\pi\}\}\{2\}/g, '(√π) / 2')
+          .replace(/\\,/g, ' ');
+      }
+
+      // =====================================================
+      // 7. 源码模式同步
+      // =====================================================
+      function updateSourceGutter() {
+        const lines = el.sourceTextarea.value.split('\n').length;
+        el.sourceLinesInfo.textContent = lines + ' 行';
+        const nums = [];
+        for (let i = 1; i <= lines; i++) nums.push(i);
+        el.sourceGutter.textContent = nums.join('\n');
+      }
+
+      function setViewMode(mode) {
+        const doc = getActiveDoc();
+        if (mode === state.viewMode) return;
+
+        if (mode === 'source') {
+          el.sourceTextarea.value = serializeDocToMarkdown(doc);
+          updateSourceGutter();
+        } else {
+          parseMarkdownToDoc(el.sourceTextarea.value, doc);
+          renderWysiwyg();
+          renderToc();
+        }
+
+        state.viewMode = mode;
+        el.wysiwygView.classList.toggle('hidden', mode !== 'wysiwyg');
+        el.sourceView.classList.toggle('hidden', mode !== 'source');
+        el.innerModeBtn.textContent = mode === 'wysiwyg' ? '源码' : '预览';
+
+        styleToggleGroup(el.btnModeWysiwyg, mode === 'wysiwyg');
+        styleToggleGroup(el.btnModeSource, mode === 'source');
+        renderChromeStatus();
+      }
+
+      function styleToggleGroup(btn, active) {
+        if (active) {
+          btn.style.background = 'var(--primary)';
+          btn.style.color = 'var(--primary-foreground)';
+        } else {
+          btn.style.background = 'transparent';
+          btn.style.color = 'var(--foreground)';
+        }
+      }
+
+      // =====================================================
+      // 8. 平台布局与主题切换
+      // =====================================================
+      function renderPlatformLayout() {
+        const p = state.platform;
+
+        // 顶部平台按钮高亮
+        document.querySelectorAll('.platform-btn').forEach(btn => {
+          styleToggleGroup(btn, btn.dataset.platformBtn === p);
+        });
+
+        // 外框尺寸适配
+        if (p === 'macos' || p === 'windows') {
+          el.deviceStage.style.maxWidth = '1120px';
+          el.appWindow.style.height = '700px';
+          el.appWindow.style.borderRadius = p === 'macos' ? '14px' : '8px';
+        } else if (p === 'ipados') {
+          el.deviceStage.style.maxWidth = '820px';
+          el.appWindow.style.height = '680px';
+          el.appWindow.style.borderRadius = '20px';
+        } else {
+          el.deviceStage.style.maxWidth = '390px';
+          el.appWindow.style.height = '700px';
+          el.appWindow.style.borderRadius = '28px';
+        }
+
+        // 标题栏平台元素显隐
+        el.macTraffic.classList.toggle('hidden', p !== 'macos');
+        el.macTraffic.classList.toggle('flex', p === 'macos');
+
+        el.winBrand.classList.toggle('hidden', p !== 'windows');
+        el.winBrand.classList.toggle('flex', p === 'windows');
+        el.winControls.classList.toggle('hidden', p !== 'windows');
+        el.winControls.classList.toggle('flex', p === 'windows');
+
+        // 侧边栏桌面常驻 vs 移动端抽屉
+        const isMobileDrawer = p === 'ios';
+        if (isMobileDrawer) {
+          el.appSidebar.classList.add('absolute', 'top-0', 'bottom-0', 'left-0');
+        } else {
+          el.appSidebar.classList.remove('absolute', 'top-0', 'bottom-0', 'left-0');
+        }
+        el.appSidebar.classList.toggle('hidden', !state.sidebarOpen);
+        el.mobileBackdrop.classList.toggle('hidden', !(isMobileDrawer && state.sidebarOpen));
+
+        // 底部状态栏 vs iOS 快捷符号条
+        el.desktopStatusbar.classList.toggle('hidden', p === 'ios');
+        el.iosToolbar.classList.toggle('hidden', p !== 'ios');
+        el.iosToolbar.classList.toggle('flex', p === 'ios');
+
+        styleToggleGroup(el.btnToggleSidebar, state.sidebarOpen);
+        styleToggleGroup(el.btnToggleFocus, state.focusMode);
+        renderChromeStatus();
+      }
+
+      function switchDocument(docId) {
+        if (state.viewMode === 'source') {
+          parseMarkdownToDoc(el.sourceTextarea.value, getActiveDoc());
+        }
+        state.activeDocId = docId;
+        state.activeTableId = null;
+        const doc = getActiveDoc();
+        state.activeBlockId = doc.blocks[0] ? doc.blocks[0].id : null;
+        if (state.viewMode === 'source') {
+          el.sourceTextarea.value = serializeDocToMarkdown(doc);
+          updateSourceGutter();
+        } else {
+          renderWysiwyg();
+        }
+        renderFileList();
+        renderToc();
+        renderChromeStatus();
+      }
+
+      // =====================================================
+      // 9. 斜杠命令插入与划词工具
+      // =====================================================
+      const SLASH_ITEMS = [
+        { label: '二级标题 ##', type: 'h2', text: '新增章节标题' },
+        { label: '正文段落', type: 'p', text: '在这里继续输入内容...' },
+        { label: '任务列表 - [ ]', type: 'task', text: '待办事项' },
+        { label: '引用块 >', type: 'quote', text: '摘录或重要提示内容' },
+        { label: 'GFM 表格', type: 'table' },
+        { label: '代码块 ```', type: 'code' },
+        { label: '数学公式 $$', type: 'math' }
+      ];
+
+      function openSlashMenu() {
+        state.slashOpen = true;
+        el.slashMenu.classList.remove('hidden');
+      }
+
+      function closeSlashMenu() {
+        state.slashOpen = false;
+        el.slashMenu.classList.add('hidden');
+      }
+
+      function insertBlockFromSlash(item) {
+        const doc = getActiveDoc();
+        const id = 'ins_' + Date.now();
+        let newBlock;
+        if (item.type === 'table') {
+          newBlock = {
+            id,
+            type: 'table',
+            headers: ['列 A', '列 B', '列 C'],
+            align: ['left', 'center', 'right'],
+            rows: [['数据 1', '状态', '100']]
+          };
+        } else if (item.type === 'code') {
+          newBlock = { id, type: 'code', lang: 'ts', code: 'const ready = true;' };
+        } else if (item.type === 'math') {
+          newBlock = { id, type: 'math', tex: 'a^2 + b^2 = c^2', expanded: true };
+        } else if (item.type === 'task') {
+          newBlock = { id, type: 'task', checked: false, text: item.text };
+        } else {
+          newBlock = { id, type: item.type, text: item.text };
+        }
+        doc.blocks.push(newBlock);
+        state.activeBlockId = id;
+        markDirty();
+        closeSlashMenu();
+        if (state.viewMode !== 'wysiwyg') setViewMode('wysiwyg');
+        else {
+          renderWysiwyg();
+          renderToc();
+        }
+        showToast('已插入：' + item.label);
+      }
+
+      function renderSlashOptions() {
+        el.slashOptions.innerHTML = '';
+        SLASH_ITEMS.forEach(item => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'w-full text-left px-2.5 py-1.5 rounded-lg hover:opacity-80 transition flex items-center justify-between';
+          btn.style.background = 'var(--ed-code-bg)';
+          btn.textContent = item.label;
+          btn.addEventListener('click', () => insertBlockFromSlash(item));
+          el.slashOptions.appendChild(btn);
+        });
+      }
+
+      // =====================================================
+      // 10. 事件绑定与初始化
+      // =====================================================
+      document.querySelectorAll('.platform-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.platform = btn.dataset.platformBtn;
+          if (state.platform === 'ios') state.sidebarOpen = false;
+          else state.sidebarOpen = true;
+          renderPlatformLayout();
+        });
+      });
+
+      el.btnModeWysiwyg.addEventListener('click', () => setViewMode('wysiwyg'));
+      el.btnModeSource.addEventListener('click', () => setViewMode('source'));
+      el.innerModeBtn.addEventListener('click', () => setViewMode(state.viewMode === 'wysiwyg' ? 'source' : 'wysiwyg'));
+
+      const toggleSidebar = () => {
+        state.sidebarOpen = !state.sidebarOpen;
+        renderPlatformLayout();
+      };
+      el.btnToggleSidebar.addEventListener('click', toggleSidebar);
+      document.getElementById('inner-sidebar-btn').addEventListener('click', toggleSidebar);
+      el.mobileBackdrop.addEventListener('click', () => {
+        state.sidebarOpen = false;
+        renderPlatformLayout();
+      });
+
+      el.btnToggleFocus.addEventListener('click', () => {
+        state.focusMode = !state.focusMode;
+        styleToggleGroup(el.btnToggleFocus, state.focusMode);
+        updateFocusActiveClass();
+        showToast(state.focusMode ? '专注模式已开启（点击任意块聚焦）' : '专注模式已关闭');
+      });
+
+      document.getElementById('select-theme').addEventListener('change', (e) => {
+        state.theme = e.target.value;
+        el.appWindow.setAttribute('data-canvas-theme', state.theme);
+      });
+
+      // 侧边栏 Tab 切换
+      function switchSidebarTab(tab) {
+        state.sidebarTab = tab;
+        document.querySelectorAll('.stab-btn').forEach(b => {
+          const active = b.dataset.stab === tab;
+          b.style.background = active ? 'var(--ed-bg)' : 'transparent';
+          b.style.color = active ? 'var(--ed-fg)' : 'var(--ed-muted)';
+        });
+        document.getElementById('stab-panel-files').classList.toggle('hidden', tab !== 'files');
+        document.getElementById('stab-panel-toc').classList.toggle('hidden', tab !== 'toc');
+        document.getElementById('stab-panel-search').classList.toggle('hidden', tab !== 'search');
+        if (tab === 'toc') renderToc();
+        if (tab === 'search') renderSearchResults();
+      }
+      document.querySelectorAll('.stab-btn').forEach(b => {
+        b.addEventListener('click', () => switchSidebarTab(b.dataset.stab));
+      });
+
+      el.searchInput.addEventListener('input', renderSearchResults);
+
+      // assets 折叠
+      document.getElementById('btn-toggle-assets').addEventListener('click', () => {
+        state.assetsOpen = !state.assetsOpen;
+        document.getElementById('assets-children').classList.toggle('hidden', !state.assetsOpen);
+        document.getElementById('assets-caret').style.transform = state.assetsOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+      });
+
+      // Frontmatter 折叠
+      document.getElementById('btn-toggle-fm').addEventListener('click', () => {
+        state.frontmatterOpen = !state.frontmatterOpen;
+        renderWysiwyg();
+      });
+
+      // 源码编辑联动
+      el.sourceTextarea.addEventListener('input', () => {
+        updateSourceGutter();
+        markDirty();
+        renderFileList();
+      });
+      el.sourceTextarea.addEventListener('scroll', () => {
+        el.sourceGutter.scrollTop = el.sourceTextarea.scrollTop;
+      });
+
+      // 保存模拟 & EOL 切换
+      function simulateSave() {
+        if (state.viewMode === 'source') {
+          parseMarkdownToDoc(el.sourceTextarea.value, getActiveDoc());
+        }
+        state.dirtyByDoc[state.activeDocId] = false;
+        renderFileList();
+        renderChromeStatus();
+        showToast('已原子保存：' + getActiveDoc().name);
+      }
+      document.getElementById('btn-fake-save').addEventListener('click', simulateSave);
+      document.getElementById('status-save-btn').addEventListener('click', simulateSave);
+
+      el.btnToggleEol.addEventListener('click', () => {
+        const doc = getActiveDoc();
+        doc.eol = doc.eol === 'LF' ? 'CRLF' : 'LF';
+        markDirty();
+        showToast('换行符已切换为 ' + doc.eol);
+      });
+
+      // 斜杠菜单按钮
+      document.getElementById('btn-slash-trigger').addEventListener('click', () => {
+        if (state.slashOpen) closeSlashMenu();
+        else openSlashMenu();
+      });
+      document.getElementById('btn-close-slash').addEventListener('click', closeSlashMenu);
+
+      // 划词轻量浮窗
+      document.addEventListener('mouseup', () => {
+        if (state.viewMode !== 'wysiwyg') {
+          el.selectionPopover.classList.add('hidden');
+          return;
+        }
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+          el.selectionPopover.classList.add('hidden');
+          return;
+        }
+        const anchorNode = sel.anchorNode;
+        if (!el.blocksContainer.contains(anchorNode)) {
+          el.selectionPopover.classList.add('hidden');
+          return;
+        }
+        const range = sel.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        el.selectionPopover.style.left = Math.max(12, Math.min(window.innerWidth - 220, rect.left)) + 'px';
+        el.selectionPopover.style.top = Math.max(12, rect.top - 42) + 'px';
+        el.selectionPopover.classList.remove('hidden');
+      });
+
+      el.selectionPopover.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const fmt = btn.dataset.fmt;
+          if (fmt === 'bold') document.execCommand('bold');
+          else if (fmt === 'italic') document.execCommand('italic');
+          else if (fmt === 'code') {
+            const txt = window.getSelection().toString();
+            document.execCommand('insertText', false, '`' + txt + '`');
+          } else if (fmt === 'highlight') {
+            document.execCommand('hiliteColor', false, 'rgba(250, 204, 21, 0.35)');
+          }
+          markDirty();
+          el.selectionPopover.classList.add('hidden');
+        });
+      });
+
+      // iOS 底部符号条事件
+      document.querySelectorAll('[data-ios-insert]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const doc = getActiveDoc();
+          const target = doc.blocks.find(b => b.id === state.activeBlockId) || doc.blocks[doc.blocks.length - 1];
+          if (target && typeof target.text === 'string') {
+            target.text += (target.text ? ' ' : '') + btn.dataset.iosInsert;
+            markDirty();
+            renderWysiwyg();
+          }
+        });
+      });
+      document.querySelectorAll('[data-ios-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.dataset.iosAction;
+          if (act === 'source') setViewMode(state.viewMode === 'wysiwyg' ? 'source' : 'wysiwyg');
+          else if (act === 'task') insertBlockFromSlash({ label: '任务列表', type: 'task', text: '移动端速记待办' });
+          else if (act === 'table') insertBlockFromSlash({ label: 'GFM 表格', type: 'table' });
+        });
+      });
+
+      // 全局键盘快捷键 Ctrl+/ 或 Cmd+/
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+          e.preventDefault();
+          setViewMode(state.viewMode === 'wysiwyg' ? 'source' : 'wysiwyg');
+          showToast(state.viewMode === 'source' ? '已切换至源码模式' : '已切换至所见即所得');
+        }
+      });
+
+      // 首次初始化渲染
+      renderSlashOptions();
+      styleToggleGroup(el.btnModeWysiwyg, true);
+      styleToggleGroup(el.btnModeSource, false);
+      switchSidebarTab('files');
+      renderFileList();
+      renderWysiwyg();
+      renderToc();
+      renderPlatformLayout();
+    })();
+  </script>
+</body>
+</html>

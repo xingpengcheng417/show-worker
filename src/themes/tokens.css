@@ -1,0 +1,260 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+:root,
+[data-theme="paper-light"] {
+  --bg-canvas: #ffffff;
+  --bg-sidebar: #f7f8fa;
+  --bg-elevated: #ffffff;
+  --bg-code: #f3f4f6;
+  --bg-quote: #f8fafc;
+  --bg-hover: rgba(31, 35, 41, 0.05);
+  --text-primary: #1f2329;
+  --text-muted: #646a73;
+  --border-subtle: #e5e7eb;
+  --accent-primary: #2563eb;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="warm-sepia"] {
+  --bg-canvas: #faf5eb;
+  --bg-sidebar: #f3ece0;
+  --bg-elevated: #fcf8ef;
+  --bg-code: #efe7d6;
+  --bg-quote: #f5efe2;
+  --bg-hover: rgba(44, 38, 32, 0.06);
+  --text-primary: #2c2620;
+  --text-muted: #7a6f63;
+  --border-subtle: #e6dec8;
+  --accent-primary: #b45309;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(180, 83, 9, 0.12);
+}
+
+[data-theme="night-slate"] {
+  --bg-canvas: #1a1d24;
+  --bg-sidebar: #14171d;
+  --bg-elevated: #20242d;
+  --bg-code: #232834;
+  --bg-quote: #1f2430;
+  --bg-hover: rgba(216, 222, 233, 0.07);
+  --text-primary: #d8dee9;
+  --text-muted: #8892a4;
+  --border-subtle: #2a303c;
+  --accent-primary: #60a5fa;
+  --accent-fg: #0f172a;
+  --accent-soft: rgba(96, 165, 250, 0.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --bg-canvas: #1a1d24;
+    --bg-sidebar: #14171d;
+    --bg-elevated: #20242d;
+    --bg-code: #232834;
+    --bg-quote: #1f2430;
+    --bg-hover: rgba(216, 222, 233, 0.07);
+    --text-primary: #d8dee9;
+    --text-muted: #8892a4;
+    --border-subtle: #2a303c;
+    --accent-primary: #60a5fa;
+    --accent-fg: #0f172a;
+    --accent-soft: rgba(96, 165, 250, 0.16);
+  }
+}
+
+:root {
+  --font-sans-apple: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-sans-win: "Segoe UI", "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif;
+  --font-mono-apple: "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --font-mono-win: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+  --editor-font-size: 15px;
+  --editor-line-height: 1.75;
+  --editor-max-width: 800px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans-win);
+}
+
+[data-platform="macos"] #root,
+[data-platform="ipados"] #root,
+[data-platform="ios"] #root {
+  font-family: var(--font-sans-apple);
+}
+
+.font-editor-mono {
+  font-family: var(--font-mono-win);
+}
+
+[data-platform="macos"] .font-editor-mono,
+[data-platform="ipados"] .font-editor-mono,
+[data-platform="ios"] .font-editor-mono {
+  font-family: var(--font-mono-apple);
+}
+
+/* 细腻滚动条 */
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.28);
+  border-radius: 9999px;
+}
+
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Milkdown Typora 风格沉浸排版 */
+.markflow-prose .milkdown .ProseMirror {
+  max-width: var(--editor-max-width);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 6rem;
+  font-size: var(--editor-font-size);
+  line-height: var(--editor-line-height);
+  color: var(--text-primary);
+  outline: none;
+  word-break: break-word;
+}
+
+.markflow-prose .milkdown .ProseMirror > * {
+  margin: 0.75em 0;
+  transition: opacity 180ms ease;
+}
+
+.markflow-prose .milkdown .ProseMirror h1 {
+  font-size: 1.95em;
+  font-weight: 700;
+  line-height: 1.3;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-top: 1.2em;
+}
+
+.markflow-prose .milkdown .ProseMirror h2 {
+  font-size: 1.48em;
+  font-weight: 650;
+  line-height: 1.35;
+  margin-top: 1.35em;
+}
+
+.markflow-prose .milkdown .ProseMirror h3 {
+  font-size: 1.2em;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 1.15em;
+}
+
+.markflow-prose .milkdown .ProseMirror blockquote {
+  border-left: 3px solid var(--accent-primary);
+  background: var(--bg-quote);
+  padding: 0.55em 1em;
+  border-radius: 0 8px 8px 0;
+  color: var(--text-muted);
+}
+
+.markflow-prose .milkdown .ProseMirror code {
+  background: var(--bg-code);
+  padding: 0.15em 0.4em;
+  border-radius: 5px;
+  font-size: 0.88em;
+  font-family: var(--font-mono-win);
+}
+
+.markflow-prose .milkdown .ProseMirror pre {
+  background: var(--bg-code);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 0.9em 1.1em;
+  overflow-x: auto;
+  line-height: 1.6;
+}
+
+.markflow-prose .milkdown .ProseMirror pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.86em;
+}
+
+.markflow-prose .milkdown .ProseMirror ul {
+  list-style: disc;
+  padding-left: 1.6em;
+}
+
+.markflow-prose .milkdown .ProseMirror ol {
+  list-style: decimal;
+  padding-left: 1.6em;
+}
+
+.markflow-prose .milkdown .ProseMirror li[data-item-type="task"] {
+  list-style: none;
+  margin-left: -1.2em;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+
+.markflow-prose .milkdown .ProseMirror li[data-item-type="task"] input[type="checkbox"] {
+  margin-top: 0.35em;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.markflow-prose .milkdown .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.1em 0;
+  font-size: 0.92em;
+}
+
+.markflow-prose .milkdown .ProseMirror th,
+.markflow-prose .milkdown .ProseMirror td {
+  border: 1px solid var(--border-subtle);
+  padding: 0.5em 0.75em;
+}
+
+.markflow-prose .milkdown .ProseMirror th {
+  background: var(--bg-code);
+  font-weight: 600;
+}
+
+.markflow-prose .milkdown .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 1.6em 0;
+}
+
+.markflow-prose .milkdown .ProseMirror a {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.markflow-prose .milkdown .ProseMirror img {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+
+/* 专注模式：非当前焦点块淡化 */
+.focus-mode-active .milkdown .ProseMirror > * {
+  opacity: 0.34;
+}
+
+.focus-mode-active .milkdown .ProseMirror > *:hover {
+  opacity: 0.75;
+}
+
+.focus-mode-active .milkdown .ProseMirror > .is-active-block {
+  opacity: 1 !important;
+}
