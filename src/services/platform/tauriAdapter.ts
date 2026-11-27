@@ -5,6 +5,7 @@ import { formatPosixRelativePath } from '@/core/markdown/outline';
 import type { AssetPolicy, FileNode, SearchHit, Workspace } from '@/core/models';
 import type {
   DocReadPayload,
+  OpenFileContextResult,
   SavedAssetResult,
   StorageAdapter,
   WindowControls,
@@ -29,6 +30,14 @@ export const tauriStorageAdapter: StorageAdapter = {
       return null;
     }
     return invoke<Workspace>('workspace_open', { path: selected });
+  },
+
+  async takePendingOpenFile(): Promise<string | null> {
+    return invoke<string | null>('take_pending_open_file');
+  },
+
+  async openFileContext(filePath: string): Promise<OpenFileContextResult> {
+    return invoke<OpenFileContextResult>('open_file_context', { filePath });
   },
 
   async listTree(rootUri: string): Promise<FileNode[]> {

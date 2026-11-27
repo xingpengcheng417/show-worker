@@ -127,6 +127,7 @@ export interface EditorState {
 
   bootstrap: () => Promise<void>;
   openWorkspace: () => Promise<void>;
+  openExternalFile: (filePath: string) => Promise<void>;
   refreshTree: () => Promise<void>;
   openDocument: (uri: string, targetLine?: number) => Promise<void>;
   updateBodyContent: (bodyMarkdown: string) => void;
@@ -205,10 +206,29 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     };
 
     try {
-      const [ws, appVersion] = await Promise.all([
-        storageAdapter.getDefaultWorkspace(),
+      const [appVersion, pendingFile] = await Promise.all([
         getAppVersion(),
+        storageAdapter.takePendingOpenFile(),
       ]);
+
+      if (pendingFile) {
+        const ctx = await storageAdapter.openFileContext(pendingFile);
+        const tree = await storageAdapter.listTree(ctx.workspace.rootUri);
+        set({
+          platform,
+          workspace: ctx.workspace,
+          tree,
+          machineState: machine,
+          focusMode: settings.focusModeDefault,
+          typewriterMode: settings.typewriterModeDefault,
+          appVersion,
+          isBootstrapped: true,
+        });
+        await get().openDocument(ctx.fileUri);
+        return;
+      }
+
+      const ws = await storageAdapter.getDefaultWorkspace();
       const tree = await storageAdapter.listTree(ws.rootUri);
       set({
         platform,
@@ -231,6 +251,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     } catch (err) {
       set({ isBootstrapped: true });
       get().notify(`初始化工作区失败：${err instanceof Error ? err.message : String(err)}`);
+    }
+  },
+
+  async openExternalFile(filePath: string) {
+    try {
+      const ctx = await storageAdapter.openFileContext(filePath);
+      const tree = await storageAdapter.listTree(ctx.workspace.rootUri);
+      set({
+        workspace: ctx.workspace,
+        tree,
+        searchResults: [],
+      });
+      await get().openDocument(ctx.fileUri);
+    } catch (err) {
+      get().notify(`打开文件失败：${err instanceof Error ? err.message : String(err)}`);
     }
   },
 

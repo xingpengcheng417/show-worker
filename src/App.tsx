@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { extractFrontmatter } from '@/core/markdown/frontmatter';
 import { isModKey } from '@/core/shortcuts/keymap';
 import { MilkdownEditor, type MilkdownEditorHandle } from '@/editor/wysiwyg/MilkdownEditor';
@@ -62,6 +64,46 @@ export function App() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.isBootstrapped]);
+
+  // 桌面端监听系统外部打开事件（macOS Finder）与资源管理器拖入 .md 文件
+  useEffect(() => {
+    if (!isTauriRuntime) return;
+    let disposed = false;
+    let unlistenOpen: (() => void) | undefined;
+    let unlistenDrop: (() => void) | undefined;
+
+    listen<string>('showworker://open-file', (event) => {
+      if (event.payload) {
+        void store.openExternalFile(event.payload);
+      }
+    }).then((fn) => {
+      if (disposed) fn();
+      else unlistenOpen = fn;
+    });
+
+    getCurrentWindow()
+      .onDragDropEvent((event) => {
+        if (event.payload.type === 'drop') {
+          const mdPath = event.payload.paths.find((p) =>
+            /\.(md|markdown|mdx)$/i.test(p),
+          );
+          if (mdPath) {
+            void store.openExternalFile(mdPath);
+          }
+        }
+      })
+      .then((fn) => {
+        if (disposed) fn();
+        else unlistenDrop = fn;
+      });
+
+    return () => {
+      disposed = true;
+      unlistenOpen?.();
+      unlistenDrop?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 全局快捷键：Mod+/ 切换模式，Mod+S 保存，Mod+\ 切换侧栏，Mod+Shift+F 搜索
   useEffect(() => {

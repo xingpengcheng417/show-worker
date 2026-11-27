@@ -70,6 +70,13 @@ pub struct SearchHit {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct OpenFileContextResult {
+    pub workspace: Workspace,
+    pub file_uri: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AssetPolicy {
     pub strategy: String,
     pub custom_sub_dir: Option<String>,
@@ -122,4 +129,16 @@ pub fn now_millis() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
+}
+
+/// 统一去除 Windows `fs::canonicalize` 产生的 `\\?\` 扩展前缀，保证路径与系统传参一致。
+pub fn normalize_path_str(path: &Path) -> String {
+    let s = path.to_string_lossy();
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = s.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        s.to_string()
+    }
 }

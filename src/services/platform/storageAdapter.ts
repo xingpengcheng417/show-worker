@@ -32,10 +32,17 @@ export interface SavedAssetResult {
   displayUrl: string;
 }
 
+export interface OpenFileContextResult {
+  workspace: Workspace;
+  fileUri: string;
+}
+
 export interface StorageAdapter {
   readonly isNative: boolean;
   getDefaultWorkspace(): Promise<Workspace>;
   openWorkspaceDialog(): Promise<Workspace | null>;
+  takePendingOpenFile(): Promise<string | null>;
+  openFileContext(filePath: string): Promise<OpenFileContextResult>;
   listTree(rootUri: string): Promise<FileNode[]>;
   readDoc(uri: string): Promise<DocReadPayload>;
   writeDocAtomic(payload: WriteDocPayload): Promise<WriteDocResult>;

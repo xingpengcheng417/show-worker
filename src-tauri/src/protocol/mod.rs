@@ -66,7 +66,12 @@ pub fn handle_md_asset<R: tauri::Runtime>(
     let allowed = state
         .workspace_roots
         .lock()
-        .map(|roots| roots.iter().any(|root| canonical.starts_with(root)))
+        .map(|roots| {
+            roots.iter().any(|root| {
+                let canon_root = fs::canonicalize(root).unwrap_or_else(|_| root.clone());
+                canonical.starts_with(&canon_root)
+            })
+        })
         .unwrap_or(false);
 
     if !allowed {

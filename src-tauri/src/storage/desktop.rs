@@ -1,6 +1,6 @@
 use super::{
-    detect_eol, now_millis, sha256_hex, AssetPolicy, DocReadPayload, FileNode, SearchHit,
-    StorageAdapter, Workspace, WriteDocPayload, WriteDocResult,
+    detect_eol, normalize_path_str, now_millis, sha256_hex, AssetPolicy, DocReadPayload, FileNode,
+    SearchHit, StorageAdapter, Workspace, WriteDocPayload, WriteDocResult,
 };
 use base64::Engine;
 use std::fs;
@@ -56,11 +56,12 @@ impl DesktopFsAdapter {
             if path.is_dir() {
                 let children = Self::build_nodes(root, &path, depth + 1)?;
                 if !children.is_empty() {
+                    let uri = normalize_path_str(&path);
                     nodes.push(FileNode {
-                        id: path.to_string_lossy().to_string(),
+                        id: uri.clone(),
                         name,
                         relative_path: Self::to_posix_rel(root, &path),
-                        uri: path.to_string_lossy().to_string(),
+                        uri,
                         kind: "directory".to_string(),
                         ext: None,
                         size_bytes: None,
@@ -74,11 +75,12 @@ impl DesktopFsAdapter {
                     .and_then(|s| s.to_str())
                     .map(|s| s.to_lowercase());
                 if matches!(ext.as_deref(), Some("md" | "markdown" | "mdx")) {
+                    let uri = normalize_path_str(&path);
                     nodes.push(FileNode {
-                        id: path.to_string_lossy().to_string(),
+                        id: uri.clone(),
                         name,
                         relative_path: Self::to_posix_rel(root, &path),
-                        uri: path.to_string_lossy().to_string(),
+                        uri,
                         kind: "file".to_string(),
                         ext,
                         size_bytes: meta.map(|m| m.len()),
@@ -95,15 +97,16 @@ impl DesktopFsAdapter {
 impl StorageAdapter for DesktopFsAdapter {
     fn open_workspace(&self, path: &Path) -> Result<Workspace, String> {
         let canonical = fs::canonicalize(path).map_err(|e| format!("无法打开工作区: {e}"))?;
+        let root_uri = normalize_path_str(&canonical);
         let name = canonical
             .file_name()
             .and_then(|s| s.to_str())
             .unwrap_or("Workspace")
             .to_string();
         Ok(Workspace {
-            id: sha256_hex(canonical.to_string_lossy().as_bytes())[..12].to_string(),
+            id: sha256_hex(root_uri.as_bytes())[..12].to_string(),
             name,
-            root_uri: canonical.to_string_lossy().to_string(),
+            root_uri,
             platform_origin: "desktop_path".to_string(),
             expanded_dirs: Vec::new(),
             last_opened_at: now_millis(),
@@ -124,7 +127,7 @@ impl StorageAdapter for DesktopFsAdapter {
         let eol = detect_eol(&content);
 
         Ok(DocReadPayload {
-            uri: path.to_string_lossy().to_string(),
+            uri: normalize_path_str(path),
             file_name: path
                 .file_name()
                 .and_then(|s| s.to_str())
@@ -205,11 +208,12 @@ impl StorageAdapter for DesktopFsAdapter {
         };
         fs::write(&target, body.as_bytes()).map_err(|e| format!("创建文档失败: {e}"))?;
 
+        let uri = normalize_path_str(&target);
         Ok(FileNode {
-            id: target.to_string_lossy().to_string(),
+            id: uri.clone(),
             name: normalized.clone(),
             relative_path: normalized,
-            uri: target.to_string_lossy().to_string(),
+            uri,
             kind: "file".to_string(),
             ext: Some("md".to_string()),
             size_bytes: Some(body.len() as u64),
@@ -236,11 +240,12 @@ impl StorageAdapter for DesktopFsAdapter {
         let target = parent.join(&normalized);
         fs::rename(path, &target).map_err(|e| format!("重命名失败: {e}"))?;
 
+        let uri = normalize_path_str(&target);
         Ok(FileNode {
-            id: target.to_string_lossy().to_string(),
+            id: uri.clone(),
             name: normalized.clone(),
             relative_path: normalized,
-            uri: target.to_string_lossy().to_string(),
+            uri,
             kind: "file".to_string(),
             ext: Some("md".to_string()),
             size_bytes: fs::metadata(&target).map(|m| m.len()).ok(),
@@ -337,7 +342,7 @@ impl StorageAdapter for DesktopFsAdapter {
                 for (idx, line) in content.lines().enumerate() {
                     if let Some(col) = line.to_lowercase().find(&q) {
                         hits.push(SearchHit {
-                            uri: path.to_string_lossy().to_string(),
+                            uri: normalize_path_str(path),
                             relative_path: rel.clone(),
                             file_name: file_name.clone(),
                             line: idx + 1,

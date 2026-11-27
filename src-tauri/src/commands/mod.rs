@@ -1,7 +1,7 @@
 use crate::storage::desktop::DesktopFsAdapter;
 use crate::storage::{
-    AssetPolicy, DocReadPayload, FileNode, SearchHit, StorageAdapter, Workspace, WriteDocPayload,
-    WriteDocResult,
+    normalize_path_str, AssetPolicy, DocReadPayload, FileNode, OpenFileContextResult, SearchHit,
+    StorageAdapter, Workspace, WriteDocPayload, WriteDocResult,
 };
 use crate::AppState;
 use std::fs;
@@ -65,6 +65,38 @@ pub fn workspace_open(path: String, state: State<'_, AppState>) -> Result<Worksp
         }
     }
     Ok(ws)
+}
+
+#[tauri::command]
+pub fn take_pending_open_file(state: State<'_, AppState>) -> Option<String> {
+    let mut pending = state.pending_open_file.lock().ok()?;
+    pending.take().map(|p| normalize_path_str(&p))
+}
+
+#[tauri::command]
+pub fn open_file_context(
+    file_path: String,
+    state: State<'_, AppState>,
+) -> Result<OpenFileContextResult, String> {
+    let raw = PathBuf::from(&file_path);
+    let canonical_file = fs::canonicalize(&raw).unwrap_or(raw);
+    if !canonical_file.is_file() {
+        return Err(format!("文件不存在: {}", canonical_file.display()));
+    }
+    let parent = canonical_file
+        .parent()
+        .ok_or_else(|| "无法获取文件所在目录".to_string())?;
+    let ws = DesktopFsAdapter.open_workspace(parent)?;
+    if let Ok(mut roots) = state.workspace_roots.lock() {
+        let root_path = PathBuf::from(&ws.root_uri);
+        if !roots.contains(&root_path) {
+            roots.push(root_path);
+        }
+    }
+    Ok(OpenFileContextResult {
+        workspace: ws,
+        file_uri: normalize_path_str(&canonical_file),
+    })
 }
 
 #[tauri::command]
@@ -142,4 +174,26 @@ pub fn doc_export_html(
     );
     fs::write(&out_file, html.as_bytes()).map_err(|e| format!("写入 HTML 失败: {e}"))?;
     Ok(out_file.to_string_lossy().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::storage::normalize_path_str;
+    use std::path::Path;
+
+    #[test]
+    fn strip_windows_verbatim_prefix() {
+        assert_eq!(
+            normalize_path_str(Path::new(r"\\?\C:\Users\demo\README.md")),
+            r"C:\Users\demo\README.md"
+        );
+        assert_eq!(
+            normalize_path_str(Path::new(r"\\?\UNC\server\share\note.md")),
+            r"\\server\share\note.md"
+        );
+        assert_eq!(
+            normalize_path_str(Path::new(r"C:\Users\demo\note.md")),
+            r"C:\Users\demo\note.md"
+        );
+    }
 }

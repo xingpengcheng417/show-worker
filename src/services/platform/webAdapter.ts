@@ -3,6 +3,7 @@ import { formatPosixRelativePath } from '@/core/markdown/outline';
 import type { AssetPolicy, FileNode, SearchHit, Workspace } from '@/core/models';
 import type {
   DocReadPayload,
+  OpenFileContextResult,
   SavedAssetResult,
   StorageAdapter,
   WindowControls,
@@ -183,6 +184,15 @@ export const webStorageAdapter: StorageAdapter = {
 
   async openWorkspaceDialog(): Promise<Workspace | null> {
     return this.getDefaultWorkspace();
+  },
+
+  async takePendingOpenFile(): Promise<string | null> {
+    return null;
+  },
+
+  async openFileContext(filePath: string): Promise<OpenFileContextResult> {
+    const workspace = await this.getDefaultWorkspace();
+    return { workspace, fileUri: filePath };
   },
 
   async listTree(): Promise<FileNode[]> {
