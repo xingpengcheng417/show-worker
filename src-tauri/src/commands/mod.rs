@@ -280,7 +280,7 @@ pub fn open_external_url(url: String) -> Result<(), String> {
             .args(["url.dll,FileProtocolHandler", &url])
             .spawn()
             .map_err(|e| format!("无法在浏览器打开链接: {e}"))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]
@@ -289,7 +289,7 @@ pub fn open_external_url(url: String) -> Result<(), String> {
             .arg(&url)
             .spawn()
             .map_err(|e| format!("无法在浏览器打开链接: {e}"))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -298,7 +298,7 @@ pub fn open_external_url(url: String) -> Result<(), String> {
             .arg(&url)
             .spawn()
             .map_err(|e| format!("无法在浏览器打开链接: {e}"))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(any(target_os = "windows", unix)))]

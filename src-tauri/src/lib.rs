@@ -95,8 +95,8 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
-        if let tauri::RunEvent::Opened { urls } = event {
-            if let Some(path) = urls.into_iter().find_map(|u| u.to_file_path().ok()) {
+        if let tauri::RunEvent::Opened { ref urls } = event {
+            if let Some(path) = urls.iter().find_map(|u| u.to_file_path().ok()) {
                 let normalized = storage::normalize_path_str(&path);
                 let state = app_handle.state::<AppState>();
                 if let Ok(mut pending) = state.pending_open_file.lock() {
